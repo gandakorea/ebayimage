@@ -10,7 +10,8 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps
 CANVAS_SIZE = 1000
 WATERMARK_TEXT = "KOREA AUTOPARTS"
 WATERMARK_WIDTH = 264
-FONT_PATH = Path(os.environ.get("KOREA_AUTOPARTS_FONT", r"C:\Windows\Fonts\NotoSans-BoldItalic.ttf"))
+BUNDLED_FONT_PATH = Path(__file__).resolve().parent.parent / "assets" / "fonts" / "NotoSans-BoldItalic.ttf"
+FONT_PATH = Path(os.environ.get("KOREA_AUTOPARTS_FONT", str(BUNDLED_FONT_PATH)))
 
 
 def make_watermark() -> Image.Image:

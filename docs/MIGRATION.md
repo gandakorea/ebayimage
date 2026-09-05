@@ -21,7 +21,6 @@ Set-Location ..
 
 - 바탕화면의 품번별 원본 사진 폴더와 그 안의 완성 파일.
 - 기존 프로젝트의 `완성본`, `작업중`, `work-in-progress`, 필요한 경우 `음성보고` 폴더.
-- 승인 워터마크 글꼴 `C:/Windows/Fonts/NotoSans-BoldItalic.ttf`. 새 Windows에 같은 글꼴을 설치한다. 다른 글꼴로 대체하면 승인된 형태가 달라진다.
 - Codex의 대화 이력, 앱 설정, 연결된 서비스와 프로젝트 밖의 개인 스킬. 이 Git 저장소에는 포함되어 있지 않다.
 - API를 다시 사용하기로 한 경우에만 키를 비밀번호 관리자 등 안전한 경로로 이전한다. `.env.local`을 GitHub에 올리지 않는다.
 
@@ -29,7 +28,7 @@ Set-Location ..
 
 ## 글꼴과 경로
 
-`finalize_product_images.py`는 기본적으로 Windows 글꼴 경로를 사용한다. 다른 위치에 보관했다면 다음 환경 변수로 정확한 글꼴 파일을 지정한다.
+승인 워터마크 글꼴은 `assets/fonts/NotoSans-BoldItalic.ttf`에 라이선스와 함께 포함된다. `finalize_product_images.py`는 이 파일을 직접 사용하므로 새 컴퓨터에 글꼴을 별도 설치할 필요가 없다. 기존 사용 파일과 동일한 버전이며 해시는 `assets/fonts/README.md`에 기록했다. 다른 위치를 명시적으로 사용할 때만 다음 환경 변수를 지정한다.
 
 ```powershell
 $env:KOREA_AUTOPARTS_FONT = 'D:/Fonts/NotoSans-BoldItalic.ttf'
@@ -42,4 +41,4 @@ py tools/finalize_product_images.py --help
 
 ## 이전 확인
 
-규칙 문서와 도구가 있는지, 원본 사진 수가 일치하는지, 승인 글꼴이 설치됐는지 확인한다. 로컬 사본 한 장으로 1000 x 1000, 라벨 위치, 워터마크 형태·색상·264 px 폭을 승인 이미지와 비교한다. 음성·유료 API 시험은 하지 않는다.
+규칙 문서와 도구가 있는지, 원본 사진 수가 일치하는지, `assets/fonts`에 승인 글꼴이 있는지 확인한다. 로컬 사본 한 장으로 1000 x 1000, 라벨 위치, 워터마크 형태·색상·264 px 폭을 승인 이미지와 비교한다. 음성·유료 API 시험은 하지 않는다.
