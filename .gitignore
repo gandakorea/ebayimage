@@ -1,0 +1,31 @@
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+# Dependencies, caches, build output
+**/node_modules/
+**/__pycache__/
+*.pyc
+**/.next/
+**/.vinext/
+**/dist/
+**/.wrangler/
+**/.openai/*
+!korea-autoparts-studio/.openai/hosting.json
+**/.vercel/
+*.tsbuildinfo
+*.log
+.venv/
+# Local production media; migrate separately
+/완성본/
+/음성보고/
+/작업중/
+/work-in-progress/
+/migration-backup/
+/*.png
+!/39220-25500_2.png
