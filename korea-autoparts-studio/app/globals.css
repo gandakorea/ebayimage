@@ -35,7 +35,9 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
   letter-spacing: 0;
 }
@@ -45,9 +47,569 @@ button {
 }
 
 button:disabled,
-input:disabled {
+input:disabled,
+select:disabled,
+textarea:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+/* eBay listing work intake */
+.listing-shell {
+  min-height: 100vh;
+  padding-bottom: 104px;
+  background:
+    radial-gradient(circle at 8% 8%, rgb(218 234 226 / 55%), transparent 24rem),
+    #f2f4f3;
+}
+
+.listing-header,
+.listing-brand,
+.listing-date-control,
+.listing-intro,
+.listing-summary,
+.agent-card-title,
+.agent-card-title > div,
+.memo-title,
+.memo-guide,
+.listing-actions {
+  display: flex;
+  align-items: center;
+}
+
+.listing-header {
+  height: 76px;
+  justify-content: space-between;
+  padding: 0 clamp(20px, 4vw, 64px);
+  border-bottom: 1px solid #d9dfdc;
+  background: rgb(255 255 255 / 92%);
+  backdrop-filter: blur(16px);
+}
+
+.listing-brand {
+  gap: 11px;
+}
+
+.listing-logo {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: #0b3928;
+  color: white;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.listing-brand strong,
+.listing-brand span,
+.listing-intro p,
+.agent-card-title p,
+.memo-title p {
+  display: block;
+}
+
+.listing-brand strong {
+  font-size: 14px;
+  letter-spacing: 0.04em;
+}
+
+.listing-brand div > span {
+  margin-top: 3px;
+  color: #69756f;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.listing-date-control {
+  gap: 9px;
+  color: #44524b;
+}
+
+.listing-date-control label {
+  font-weight: 800;
+}
+
+.listing-date-control input {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid #cbd4cf;
+  border-radius: 9px;
+  background: white;
+  color: #15231c;
+  font-weight: 750;
+}
+
+.listing-intro {
+  justify-content: space-between;
+  gap: 32px;
+  padding: 32px clamp(20px, 4vw, 64px) 24px;
+}
+
+.listing-intro p,
+.agent-card-title p,
+.memo-title p {
+  margin: 0 0 5px;
+  color: #19734d;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+}
+
+.listing-intro h1 {
+  margin: 0;
+  font-size: clamp(25px, 3vw, 38px);
+  letter-spacing: -0.045em;
+}
+
+.listing-summary {
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid #d5dcd8;
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 10px 30px rgb(30 51 41 / 6%);
+}
+
+.listing-summary > * {
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 15px;
+  border-right: 1px solid #e0e5e2;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.listing-summary > *:last-child {
+  border-right: 0;
+}
+
+.listing-summary span {
+  color: #6e7973;
+}
+
+.listing-summary strong {
+  color: #17231d;
+}
+
+.listing-summary em {
+  gap: 6px;
+  background: #eaf5ef;
+  color: #19734d;
+  font-weight: 800;
+}
+
+.listing-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 22px;
+  padding: 0 clamp(20px, 4vw, 64px);
+}
+
+.agent-board {
+  min-width: 0;
+  display: grid;
+  gap: 16px;
+}
+
+.agent-card,
+.batch-memo-card {
+  border: 1px solid #d5dcd8;
+  border-radius: 16px;
+  background: white;
+  box-shadow: 0 12px 36px rgb(30 51 41 / 6%);
+}
+
+.agent-card {
+  overflow: hidden;
+}
+
+.agent-card-title {
+  justify-content: space-between;
+  min-height: 78px;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e3e7e5;
+}
+
+.agent-card-title > div {
+  gap: 12px;
+}
+
+.agent-card-title > div > span {
+  width: 43px;
+  height: 43px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #e5f3eb;
+  color: #14623f;
+  font-size: 19px;
+  font-weight: 900;
+}
+
+.agent-2 .agent-card-title > div > span {
+  background: #e9eef9;
+  color: #315da7;
+}
+
+.agent-3 .agent-card-title > div > span {
+  background: #f7eddc;
+  color: #8b5911;
+}
+
+.agent-card-title h2,
+.memo-title h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.agent-card-title > strong {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f2f5f3;
+  color: #66716b;
+  font-size: 12px;
+}
+
+.work-table-head,
+.work-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.15fr) minmax(110px, .62fr) minmax(150px, .8fr) minmax(170px, 1fr) 38px;
+  gap: 10px;
+}
+
+.work-table-head {
+  padding: 10px 20px 8px 48px;
+  background: #f7f9f8;
+  color: #758079;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.work-row {
+  position: relative;
+  align-items: center;
+  padding: 12px 20px 12px 48px;
+  border-top: 1px solid #edf0ee;
+}
+
+.work-index {
+  position: absolute;
+  left: 20px;
+  width: 22px;
+  color: #8a948f;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.work-row label {
+  position: relative;
+  min-width: 0;
+}
+
+.work-row label > span {
+  display: none;
+}
+
+.work-row input,
+.work-row select {
+  width: 100%;
+  height: 42px;
+  padding: 0 11px;
+  border: 1px solid #cdd5d1;
+  border-radius: 8px;
+  outline: none;
+  background: white;
+  color: #17231d;
+  font-size: 15px;
+}
+
+.work-row input:focus,
+.work-row select:focus,
+.batch-memo-card textarea:focus,
+.listing-date-control input:focus {
+  border-color: #19734d;
+  box-shadow: 0 0 0 3px rgb(25 115 77 / 12%);
+}
+
+.price-input b {
+  position: absolute;
+  top: 11px;
+  left: 11px;
+  color: #66726c;
+  font-size: 15px;
+}
+
+.price-input input {
+  padding-left: 25px;
+}
+
+.row-delete {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #9a6464;
+}
+
+.row-delete:hover:not(:disabled) {
+  background: #fbeeee;
+  color: #a62f2f;
+}
+
+.add-work-row {
+  min-height: 43px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: calc(100% - 40px);
+  margin: 2px 20px 16px;
+  border: 1px dashed #b9c7c0;
+  border-radius: 9px;
+  background: #f8faf9;
+  color: #426154;
+  font-weight: 800;
+}
+
+.add-work-row:hover {
+  border-color: #19734d;
+  background: #eef7f2;
+}
+
+.batch-memo-card {
+  position: sticky;
+  top: 18px;
+  align-self: start;
+  padding: 20px;
+}
+
+.memo-title {
+  gap: 11px;
+  margin-bottom: 16px;
+}
+
+.memo-title > span {
+  width: 43px;
+  height: 43px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: #fff1c9;
+  color: #8d620e;
+}
+
+.batch-memo-card textarea {
+  width: 100%;
+  min-height: 360px;
+  resize: vertical;
+  padding: 15px;
+  border: 1px solid #d5d9c8;
+  border-radius: 10px;
+  outline: none;
+  background:
+    repeating-linear-gradient(to bottom, #fffef4 0, #fffef4 31px, #e8e3c7 32px);
+  color: #26312b;
+  font-size: 16px;
+  line-height: 32px;
+}
+
+.memo-guide {
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 13px;
+  color: #6d7771;
+}
+
+.memo-guide svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.memo-guide p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.listing-actions {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 10;
+  justify-content: flex-end;
+  gap: 10px;
+  min-height: 78px;
+  padding: 14px clamp(20px, 4vw, 64px);
+  border-top: 1px solid #d2dad6;
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 -10px 30px rgb(30 51 41 / 7%);
+  backdrop-filter: blur(16px);
+}
+
+.listing-actions button {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 18px;
+  border-radius: 10px;
+  font-weight: 850;
+}
+
+.clear-listing {
+  border: 1px solid #d2d9d5;
+  background: white;
+  color: #536059;
+}
+
+.copy-listing {
+  min-width: 190px;
+  border: 1px solid #0f5738;
+  background: #126b45;
+  color: white;
+}
+
+.copy-listing:hover:not(:disabled) {
+  background: #0c5738;
+}
+
+.copy-listing.copied {
+  border-color: #26633f;
+  background: #e7f4ec;
+  color: #155f3e;
+}
+
+.listing-loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  color: #526159;
+  font-weight: 800;
+}
+
+@media (max-width: 1120px) {
+  .listing-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .batch-memo-card {
+    position: static;
+  }
+
+  .batch-memo-card textarea {
+    min-height: 190px;
+  }
+}
+
+@media (max-width: 820px) {
+  .listing-header,
+  .listing-intro {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .listing-header {
+    height: auto;
+    gap: 14px;
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  .listing-date-control {
+    width: 100%;
+  }
+
+  .listing-date-control input {
+    flex: 1;
+  }
+
+  .listing-summary {
+    width: 100%;
+  }
+
+  .listing-summary > * {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .work-table-head {
+    display: none;
+  }
+
+  .work-row {
+    grid-template-columns: 1fr 1fr;
+    padding: 18px 48px 18px 20px;
+  }
+
+  .work-index {
+    top: 4px;
+    left: 22px;
+  }
+
+  .work-row label > span {
+    display: block;
+    margin-bottom: 5px;
+    color: #6f7a74;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .price-input b {
+    top: 34px;
+  }
+
+  .row-delete {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+  }
+}
+
+@media (max-width: 560px) {
+  .listing-intro {
+    padding-top: 23px;
+  }
+
+  .listing-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .listing-summary em {
+    grid-column: 1 / -1;
+    justify-content: center;
+    border-top: 1px solid #e0e5e2;
+  }
+
+  .work-row {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-card-title {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .listing-actions {
+    display: grid;
+    grid-template-columns: 1fr 1.35fr;
+    padding: 10px 12px;
+  }
+
+  .listing-actions button {
+    min-width: 0;
+    padding: 0 10px;
+    font-size: 13px;
+  }
 }
 
 img {
@@ -1226,6 +1788,26 @@ img {
   font-size: 11px;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.listing-work-link {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid #badbc9;
+  border-radius: 4px;
+  background: #e9f6ef;
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.listing-work-link:hover {
+  background: #dcefe5;
 }
 
 .connection-state.connected {

@@ -9,6 +9,7 @@ import {
   Check,
   CheckCircle2,
   CircleDot,
+  ClipboardList,
   Download,
   FileImage,
   FolderOpen,
@@ -404,6 +405,7 @@ export default function Home() {
       <header className="topbar">
         <div className="brand-lockup"><div className="brand-mark" aria-hidden="true">KA</div><div><strong>KOREA AUTOPARTS</strong><span>IMAGE STUDIO</span></div></div>
         <div className="topbar-status">
+          <a className="listing-work-link" href="/listing-work"><ClipboardList size={14} /> 리스팅 작업표</a>
           <span className={`connection-state ${aiConnected === true ? 'connected' : aiConnected === false ? 'disconnected' : ''}`}>
             {aiConnected === null ? <LoaderCircle className="spin" size={14} /> : aiConnected ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
             {aiConnected === null ? 'AI 연결 확인 중' : aiConnected ? 'AI 연결됨' : 'AI 연결 필요'}
