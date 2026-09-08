@@ -9,6 +9,7 @@
 *.key
 # Dependencies, caches, build output
 **/node_modules/
+/.pnpm-store/
 **/__pycache__/
 *.pyc
 **/.next/
@@ -26,6 +27,8 @@
 /음성보고/
 /작업중/
 /work-in-progress/
+/korea-autoparts-studio/public/reviews/
+/ebay-au-account-deletion-endpoint/
 /migration-backup/
 /*.png
 !/39220-25500_2.png

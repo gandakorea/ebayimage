@@ -11,27 +11,7 @@ import {
   StickyNote,
   Trash2,
 } from 'lucide-react';
-
-type ShippingPolicy = '7day normal' | '7day fast';
-
-type WorkItem = {
-  id: string;
-  itemNumber: string;
-  price: string;
-  shippingPolicy: ShippingPolicy;
-  memo: string;
-};
-
-type AgentGroup = {
-  agent: number;
-  items: WorkItem[];
-};
-
-type SavedBatch = {
-  date: string;
-  batchMemo: string;
-  groups: AgentGroup[];
-};
+import type { AgentGroup, SavedBatch, ShippingPolicy, WorkItem } from '@/lib/listing-work-store';
 
 type ModelContext = {
   registerTool: (
@@ -75,12 +55,41 @@ function todayInKorea() {
   }).format(new Date());
 }
 
-function readBatch(date: string): SavedBatch | null {
+function readLocalBatch(date: string): SavedBatch | null {
   try {
     const raw = window.localStorage.getItem(`${STORAGE_PREFIX}${date}`);
     return raw ? JSON.parse(raw) as SavedBatch : null;
   } catch {
     return null;
+  }
+}
+
+async function readServerBatch(date: string): Promise<SavedBatch | null> {
+  const response = await fetch(`/api/listing-work?date=${encodeURIComponent(date)}`, { cache: 'no-store' });
+  if (!response.ok) throw new Error('서버 작업표를 불러오지 못했습니다.');
+  const result = await response.json() as { found: boolean; batch?: SavedBatch };
+  return result.found && result.batch ? result.batch : null;
+}
+
+async function saveServerBatch(batch: SavedBatch) {
+  const response = await fetch('/api/listing-work', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(batch),
+  });
+  if (!response.ok) throw new Error('서버에 저장하지 못했습니다.');
+  return response.json() as Promise<{ saved: true; itemCount: number; updatedAt: string }>;
+}
+
+async function migrateLocalBatches() {
+  const keys = Array.from({ length: window.localStorage.length }, (_, index) => window.localStorage.key(index))
+    .filter((key): key is string => Boolean(key?.startsWith(STORAGE_PREFIX)));
+  for (const key of keys) {
+    const date = key.slice(STORAGE_PREFIX.length);
+    const batch = readLocalBatch(date);
+    if (!batch) continue;
+    await saveServerBatch(batch);
+    window.localStorage.removeItem(key);
   }
 }
 
@@ -96,23 +105,59 @@ export default function ListingWorkPage() {
   const [batchMemo, setBatchMemo] = useState('');
   const [ready, setReady] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [saveState, setSaveState] = useState<'saving' | 'saved' | 'error'>('saved');
   const batchRef = useRef<SavedBatch>({ date: '', batchMemo: '', groups: [] });
-
-  batchRef.current = { date, batchMemo, groups };
+  const skipAutosaveRef = useRef(true);
 
   useEffect(() => {
-    const currentDate = todayInKorea();
-    const saved = readBatch(currentDate);
-    setDate(currentDate);
-    setGroups(saved?.groups ?? makeGroups());
-    setBatchMemo(saved?.batchMemo ?? '');
-    setReady(true);
+    batchRef.current = { date, batchMemo, groups };
+  }, [batchMemo, date, groups]);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const currentDate = todayInKorea();
+      try {
+        await migrateLocalBatches();
+        const saved = await readServerBatch(currentDate);
+        if (!active) return;
+        setDate(currentDate);
+        setGroups(saved?.groups ?? makeGroups());
+        setBatchMemo(saved?.batchMemo ?? '');
+      } catch {
+        if (!active) return;
+        const local = readLocalBatch(currentDate);
+        setDate(currentDate);
+        setGroups(local?.groups ?? makeGroups());
+        setBatchMemo(local?.batchMemo ?? '');
+        setSaveState('error');
+      } finally {
+        if (active) {
+          skipAutosaveRef.current = true;
+          setReady(true);
+        }
+      }
+    })();
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
     if (!ready || !date || groups.length === 0) return;
+    if (skipAutosaveRef.current) {
+      skipAutosaveRef.current = false;
+      return;
+    }
     const batch: SavedBatch = { date, batchMemo, groups };
-    window.localStorage.setItem(`${STORAGE_PREFIX}${date}`, JSON.stringify(batch));
+    setSaveState('saving');
+    const timer = window.setTimeout(() => {
+      void saveServerBatch(batch)
+        .then(() => setSaveState('saved'))
+        .catch(() => {
+          window.localStorage.setItem(`${STORAGE_PREFIX}${date}`, JSON.stringify(batch));
+          setSaveState('error');
+        });
+    }, 600);
+    return () => window.clearTimeout(timer);
   }, [batchMemo, date, groups, ready]);
 
   useEffect(() => {
@@ -158,7 +203,7 @@ export default function ListingWorkPage() {
         additionalProperties: false,
       },
       annotations: { readOnlyHint: false, untrustedContentHint: false },
-      execute(input) {
+      async execute(input) {
         if (!input || typeof input !== 'object') throw new Error('작업표 데이터가 필요합니다.');
         const value = input as {
           date?: unknown;
@@ -192,9 +237,17 @@ export default function ListingWorkPage() {
           });
           nextGroups[Number(agentValue.agent) - 1].items = mapped.length ? mapped : [makeItem()];
         }
-        if (typeof value.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.date)) setDate(value.date);
-        if (typeof value.batchMemo === 'string') setBatchMemo(value.batchMemo);
+        const nextDate = typeof value.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.date)
+          ? value.date
+          : batchRef.current.date;
+        const nextMemo = typeof value.batchMemo === 'string' ? value.batchMemo : '';
+        const nextBatch = { date: nextDate, batchMemo: nextMemo, groups: nextGroups };
+        await saveServerBatch(nextBatch);
+        skipAutosaveRef.current = true;
+        setDate(nextDate);
+        setBatchMemo(nextMemo);
         setGroups(nextGroups);
+        setSaveState('saved');
         setCopied(false);
         return {
           saved: true,
@@ -213,17 +266,15 @@ export default function ListingWorkPage() {
         additionalProperties: false,
       },
       annotations: { readOnlyHint: true, untrustedContentHint: false },
-      execute(input) {
+      async execute(input) {
         const requestedDate = input && typeof input === 'object' && 'date' in input
           ? (input as { date?: unknown }).date
           : undefined;
         if (requestedDate !== undefined && (typeof requestedDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(requestedDate))) {
           throw new Error('날짜는 YYYY-MM-DD 형식이어야 합니다.');
         }
-        const current = batchRef.current;
-        const selected = typeof requestedDate === 'string' && requestedDate !== current.date
-          ? readBatch(requestedDate)
-          : current;
+        const selectedDate = typeof requestedDate === 'string' ? requestedDate : batchRef.current.date;
+        const selected = await readServerBatch(selectedDate);
         if (!selected) return { found: false, date: requestedDate };
         return {
           found: true,
@@ -255,13 +306,22 @@ export default function ListingWorkPage() {
     [groups],
   );
 
-  const changeDate = (nextDate: string) => {
+  const changeDate = async (nextDate: string) => {
     if (!nextDate) return;
-    const saved = readBatch(nextDate);
-    setDate(nextDate);
-    setGroups(saved?.groups ?? makeGroups());
-    setBatchMemo(saved?.batchMemo ?? '');
-    setCopied(false);
+    setReady(false);
+    try {
+      const saved = await readServerBatch(nextDate);
+      skipAutosaveRef.current = true;
+      setDate(nextDate);
+      setGroups(saved?.groups ?? makeGroups());
+      setBatchMemo(saved?.batchMemo ?? '');
+      setSaveState('saved');
+      setCopied(false);
+    } catch {
+      setSaveState('error');
+    } finally {
+      setReady(true);
+    }
   };
 
   const updateItem = (agent: number, id: string, patch: Partial<WorkItem>) => {
@@ -287,11 +347,18 @@ export default function ListingWorkPage() {
     }));
   };
 
-  const clearBatch = () => {
+  const clearBatch = async () => {
     if (!date) return;
+    const response = await fetch(`/api/listing-work?date=${encodeURIComponent(date)}`, { method: 'DELETE' });
+    if (!response.ok) {
+      setSaveState('error');
+      return;
+    }
+    skipAutosaveRef.current = true;
     window.localStorage.removeItem(`${STORAGE_PREFIX}${date}`);
     setGroups(makeGroups());
     setBatchMemo('');
+    setSaveState('saved');
     setCopied(false);
   };
 
@@ -336,7 +403,7 @@ export default function ListingWorkPage() {
             id="work-date"
             type="date"
             value={date}
-            onChange={(event) => changeDate(event.target.value)}
+            onChange={(event) => void changeDate(event.target.value)}
           />
         </div>
       </header>
@@ -349,7 +416,7 @@ export default function ListingWorkPage() {
         <div className="listing-summary" aria-label="입력 현황">
           <span>{date}</span>
           <strong>{itemCount}개 상품</strong>
-          <em><Check size={15} /> 자동 저장</em>
+          <em><Check size={15} /> {saveState === 'saving' ? '서버 저장 중' : saveState === 'error' ? '저장 재시도 필요' : '서버 자동 저장'}</em>
         </div>
       </section>
 
@@ -452,13 +519,13 @@ export default function ListingWorkPage() {
           />
           <div className="memo-guide">
             <FileText size={17} />
-            <p>입력한 내용은 선택한 날짜별로 이 브라우저에 자동 저장됩니다.</p>
+            <p>입력한 내용은 날짜별로 서버에 자동 저장되어 작업 에이전트가 바로 읽을 수 있습니다.</p>
           </div>
         </aside>
       </section>
 
       <footer className="listing-actions">
-        <button className="clear-listing" type="button" onClick={clearBatch}>
+        <button className="clear-listing" type="button" onClick={() => void clearBatch()}>
           <RotateCcw size={18} /> 오늘 입력 비우기
         </button>
         <button className={`copy-listing ${copied ? 'copied' : ''}`} type="button" onClick={copyRequest} disabled={itemCount === 0}>

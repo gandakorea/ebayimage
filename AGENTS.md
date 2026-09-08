@@ -7,7 +7,22 @@
 - Do not test a paid API or create audio to verify a computer migration.
 - These current preferences override the conditional voice instructions below.
 
-## Photo Work
+## eBay Account Separation
+
+- Before any eBay work, read `docs/EBAY_ACCOUNTS.md` and `docs/LISTING_RULES.md`.
+- US seller: `gandakorea`, USD, `EBAY_US`. AU seller: `sihooshop`, AUD, `EBAY_AU`.
+- For every listing work request, always connect to the US `gandakorea` account first and finish the full US batch before switching to AU `sihooshop`. Never mix the two account workflows or start with AU.
+- Verify the actual signed-in seller or API-authenticated seller before mutations. The domain and separate tabs do not prove account separation.
+- Keep credentials, policies, compatibility data, and listing IDs separated by seller and marketplace. Never substitute AU credentials for US credentials.
+
+## Autonomous Work — User Rule (2026-09-08)
+
+- Once the user requests work, continue through the authorized task without repeatedly asking whether to start or continue.
+- Ask only for genuinely necessary information or decisions that materially affect correctness, account identity, cost, or irreversible outcomes and cannot be resolved from saved rules or available evidence.
+- Routine photo preparation, applying saved listing rules, and checking results do not require repeated confirmation.
+- Report meaningful progress in text; do not end the turn with an acknowledgement when authorized work remains possible.
+
+## Photo Work Instructions
 
 - Read `작업규칙.md` before processing a new batch; it is the canonical visual specification.
 - Read `docs/WORKFLOW.md` for execution and verification, and `docs/MIGRATION.md` for moving computers.
