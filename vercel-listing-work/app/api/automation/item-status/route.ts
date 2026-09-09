@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { PreparationStatus, SavedBatch } from '@/lib/listing-work-store';
+import { readWorkBatch, saveWorkBatch } from '@/lib/work-batch-store';
 
 export const runtime = 'nodejs';
 
-const storageUrl = 'https://korea-autoparts-image-studio.kongee7425.chatgpt.site/api/listing-work';
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const WORKER_STATUSES: PreparationStatus[] = ['working', 'completed', 'needs_attention'];
 
@@ -31,16 +31,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: '작업 상태 형식이 올바르지 않습니다.' }, { status: 400 });
   }
 
-  const stored = await fetch(`${storageUrl}?date=${body.date}`, { cache: 'no-store' });
-  if (!stored.ok) return NextResponse.json({ ok: false, error: '작업표 조회 실패' }, { status: 502 });
-  const result = await stored.json() as { found: boolean; batch?: SavedBatch };
-  if (!result.found || !result.batch) {
+  const storedBatch = await readWorkBatch(body.date);
+  if (!storedBatch) {
     return NextResponse.json({ ok: false, error: '작업표를 찾지 못했습니다.' }, { status: 404 });
   }
 
   let found = false;
   const statusUpdatedAt = new Date().toISOString();
-  const groups = result.batch.groups.map((group) => ({
+  const groups = storedBatch.groups.map((group) => ({
     ...group,
     items: group.items.map((item) => {
       if (item.id !== body.itemId) return item;
@@ -63,14 +61,9 @@ export async function POST(request: NextRequest) {
       ? 'needs_attention'
       : activeItems.some((item) => item.preparationStatus === 'working')
         ? 'running'
-        : result.batch.automationStatus;
-  const batch: SavedBatch = { ...result.batch, groups, automationStatus };
-  const saved = await fetch(storageUrl, {
-    method: 'PUT',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(batch),
-  });
-  if (!saved.ok) return NextResponse.json({ ok: false, error: '작업 상태 저장 실패' }, { status: 502 });
+        : storedBatch.automationStatus;
+  const batch: SavedBatch = { ...storedBatch, groups, automationStatus };
+  await saveWorkBatch(batch);
 
   return NextResponse.json({ ok: true, date: body.date, itemId: body.itemId, status: body.status, statusUpdatedAt });
 }

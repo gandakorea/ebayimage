@@ -30,7 +30,7 @@
 - 사용자는 랜딩페이지에 사진 파일을 별도로 올릴 필요가 없다.
 - Vercel Blob 접근 토큰과 eBay 인증정보는 Vercel 환경변수에만 저장하고 Git 또는 작업지시서에 기록하지 않는다.
 - 사전 작업한 사진을 재사용하므로 예약 실행 시 유료 AI 사진 생성을 다시 호출하지 않는다. 새로운 유료 API 사용은 사용자의 별도 승인을 받아야 한다.
-- Vercel Blob 연결과 실제 자동 작업기가 구축되기 전에는 위 절차를 자동 완료된 것으로 간주하지 않는다.
+- Vercel 자동 작업기와 비공개 등록 패키지 API는 `vercel-listing-work`에 구현되어 있다. 실제 예약 등록을 켜기 전 Vercel Private Blob과 `.env.example`의 Production 비밀값 연결을 완료한다. 상세 운영은 `docs/FULL_AUTOMATION.md`를 따른다.
 
 ## 처리 순서
 

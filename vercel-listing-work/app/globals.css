@@ -2721,3 +2721,23 @@ img {
     border-left: 0;
   }
 }
+.marketplace-results {
+  display: flex;
+  gap: 8px;
+}
+
+.marketplace-results a {
+  color: #155eef;
+  font-weight: 800;
+  text-decoration: underline;
+}
+
+.cloud-connected,
+.cloud-disconnected {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.cloud-connected { color: #067647; }
+.cloud-disconnected { color: #b42318; }

@@ -116,10 +116,18 @@ export default function ListingWorkPage() {
   const [ready, setReady] = useState(false);
   const [copied, setCopied] = useState(false);
   const [saveState, setSaveState] = useState<'saving' | 'saved' | 'error'>('saved');
+  const [cloudReady, setCloudReady] = useState<boolean | null>(null);
   const batchRef = useRef<SavedBatch>({
     date: '', batchMemo: '', groups: [], scheduledTime: '17:00', automationEnabled: false, publishMode: 'approval',
   });
   const skipAutosaveRef = useRef(true);
+
+  useEffect(() => {
+    void fetch('/api/automation/health', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((value: { ready?: boolean }) => setCloudReady(Boolean(value.ready)))
+      .catch(() => setCloudReady(false));
+  }, []);
 
   useEffect(() => {
     batchRef.current = { date, batchMemo, groups, scheduledTime, automationEnabled, publishMode };
@@ -195,6 +203,8 @@ export default function ListingWorkPage() {
               partNumber: remote.partNumber,
               photoCount: remote.photoCount,
               statusUpdatedAt: remote.statusUpdatedAt,
+              usResult: remote.usResult,
+              auResult: remote.auResult,
             };
           }),
         })));
@@ -356,13 +366,13 @@ export default function ListingWorkPage() {
     }, { signal: lifecycle.signal }), modelContext.registerTool({
       name: 'update_listing_work_item_status',
       title: '상품 준비 상태 갱신',
-      description: '사진 작업의 시작, 완료 또는 확인 필요 상태를 날짜별 작업표의 해당 상품에 기록합니다.',
+      description: '사진·등록 패키지 준비의 시작 또는 확인 필요 상태를 날짜별 작업표의 해당 상품에 기록합니다. 준비 완료는 패키지 업로드가 자동 기록합니다.',
       inputSchema: {
         type: 'object',
         properties: {
           date: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
           itemId: { type: 'string' },
-          status: { enum: ['working', 'completed', 'needs_attention'] },
+          status: { enum: ['working', 'needs_attention'] },
           partNumber: { type: 'string' },
           photoCount: { type: 'integer', minimum: 0 },
         },
@@ -375,7 +385,7 @@ export default function ListingWorkPage() {
         const value = input as Record<string, unknown>;
         if (typeof value.date !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(value.date)
           || typeof value.itemId !== 'string'
-          || !['working', 'completed', 'needs_attention'].includes(String(value.status))
+          || !['working', 'needs_attention'].includes(String(value.status))
           || (value.partNumber !== undefined && typeof value.partNumber !== 'string')
           || (value.photoCount !== undefined && (!Number.isInteger(value.photoCount) || Number(value.photoCount) < 0))) {
           throw new Error('상품 상태 형식을 확인해 주세요.');
@@ -460,7 +470,7 @@ export default function ListingWorkPage() {
           ...group,
           items: group.items.map((item) => item.id === id ? {
             ...item,
-            preparationStatus: 'ready' as PreparationStatus,
+            preparationStatus: 'working' as PreparationStatus,
             statusUpdatedAt,
           } : item),
         }
@@ -573,6 +583,9 @@ export default function ListingWorkPage() {
           <p>CLOUD AUTOMATION</p>
           <h2>컴퓨터가 꺼져 있어도 예약 시간에 시작</h2>
           <span>미국 계정을 먼저 완료한 뒤 호주 계정 작업을 시작합니다.</span>
+          <strong className={cloudReady ? 'cloud-connected' : 'cloud-disconnected'}>
+            {cloudReady === null ? '연결 확인 중' : cloudReady ? '자동 등록 연결 완료' : '비공개 설정 연결 필요'}
+          </strong>
         </div>
         <label>
           <span>실행 시간 · 한국</span>
@@ -665,15 +678,26 @@ export default function ListingWorkPage() {
                         onClick={() => void markItemReady(group.agent, item.id)}
                       >
                         <Check size={14} />
-                        {item.preparationStatus === 'working' ? '작업 중' : '준비'}
+                        {item.preparationStatus === 'working' ? '준비 중'
+                          : item.preparationStatus === 'ready' ? '준비 완료'
+                            : item.preparationStatus === 'completed' ? '등록 완료' : '준비'}
                       </button>
-                      <button type="button" className="complete-step" disabled>
+                      <button type="button" className="complete-step" disabled={item.preparationStatus !== 'completed'}>
                         <Check size={14} /> 완료
                       </button>
                       {item.partNumber && (
                         <small>{item.partNumber}{typeof item.photoCount === 'number' ? ` · 사진 ${item.photoCount}장` : ''}</small>
                       )}
                       {item.preparationStatus === 'needs_attention' && <small>확인 필요</small>}
+                      {(item.usResult?.listingUrl || item.auResult?.listingUrl) && (
+                        <small className="marketplace-results">
+                          {item.usResult?.listingUrl && <a href={item.usResult.listingUrl} target="_blank" rel="noreferrer">미국</a>}
+                          {item.auResult?.listingUrl && <a href={item.auResult.listingUrl} target="_blank" rel="noreferrer">호주</a>}
+                        </small>
+                      )}
+                      {(item.usResult?.error || item.auResult?.error) && (
+                        <small title={item.usResult?.error ?? item.auResult?.error}>오류 내용을 확인하세요</small>
+                      )}
                     </div>
                     <button
                       className="row-delete"
