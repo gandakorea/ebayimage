@@ -47,8 +47,8 @@ export async function GET(request: NextRequest) {
 
   const batch = result.batch;
   if (!batch.automationEnabled) return NextResponse.json({ ok: true, state: 'disabled', ...now });
-  if (now.time < (batch.scheduledTime || '09:00')) {
-    return NextResponse.json({ ok: true, state: 'waiting', scheduledTime: batch.scheduledTime, ...now });
+  if (now.time < '17:00') {
+    return NextResponse.json({ ok: true, state: 'waiting', scheduledTime: '17:00', ...now });
   }
   if (batch.automationStatus === 'queued' || batch.automationStatus === 'running'
     || batch.automationStatus === 'needs_attention' || batch.automationStatus === 'completed') {
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
     headers: { 'content-type': 'application/json', authorization: `Bearer ${workerSecret}` },
     body: JSON.stringify({
       date: batch.date,
-      scheduledTime: batch.scheduledTime,
+      scheduledTime: '17:00',
       publishMode: batch.publishMode,
       batchMemo: batch.batchMemo,
       marketplaceOrder: ['EBAY_US', 'EBAY_AU'],
