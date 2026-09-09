@@ -78,6 +78,12 @@ function Add-NameValue([xml]$Document, [System.Xml.XmlElement]$Parent, [string]$
 
 function New-Description([string]$Template, [string]$TemplateTitle, $Product) {
     $value = $Template.Replace($TemplateTitle, $Product.title)
+    $bodyTitle = [regex]'⭐Genuine[^<]+'
+    if ($bodyTitle.IsMatch($value)) {
+        $value = $bodyTitle.Replace($value, $Product.title, 1)
+    } else {
+        throw "Description title line was not found for $($Product.part)"
+    }
     foreach ($old in @('437112M1009P','43711-2M1009P','43711 2M1009P')) { $value = $value.Replace($old, $Product.part.Replace('-','')) }
     $value = $value.Replace('leather 6 speed MT gear shift knob lever', $Product.partWords)
     $value = $value.Replace('This part fits Hyundai Genesis Coupe 2009-2017.', 'This part fits the vehicles listed in the compatibility table.')
@@ -231,6 +237,7 @@ foreach ($product in $products) {
 
     $listingId = $null
     if ($Publish) {
+        $createdNow = $false
         $resultPath = Join-Path $dir 'published-result.json'
         if ($existingBySku.ContainsKey($sku)) { $listingId = [string]$existingBySku[$sku] }
         if (Test-Path -LiteralPath $resultPath) {
@@ -242,8 +249,23 @@ foreach ($product in $products) {
             $add.Save((Join-Path $dir 'publish-response.xml'))
             Assert-Success $add "Publish $($product.part)"
             $listingId = [string]$add.AddFixedPriceItemResponse.ItemID
+            $createdNow = $true
         }
         if ([string]::IsNullOrWhiteSpace($listingId)) { throw "No listing ID: $($product.part)" }
+        if (-not $createdNow) {
+            [xml]$reviseRequest = New-Object System.Xml.XmlDocument
+            $reviseRoot = $reviseRequest.CreateElement('ReviseFixedPriceItemRequest',$ns)
+            [void]$reviseRequest.AppendChild($reviseRoot)
+            $reviseItem = $reviseRequest.CreateElement('Item',$ns)
+            [void]$reviseRoot.AppendChild($reviseItem)
+            [void](Add-TextElement $reviseRequest $reviseItem 'ItemID' $listingId)
+            $reviseDescription = $reviseRequest.CreateElement('Description',$ns)
+            $reviseDescription.InnerText = $description
+            [void]$reviseItem.AppendChild($reviseDescription)
+            $revised = Invoke-TradingApi 'ReviseFixedPriceItem' $reviseRequest
+            $revised.Save((Join-Path $dir 'revise-description-response.xml'))
+            Assert-Success $revised "Revise description $($product.part)"
+        }
         [xml]$get = New-Object System.Xml.XmlDocument
         $getRoot = $get.CreateElement('GetItemRequest',$ns)
         [void]$get.AppendChild($getRoot)
@@ -257,7 +279,7 @@ foreach ($product in $products) {
         $pi = $published.GetItemResponse.Item
         $brand = @($pi.ItemSpecifics.NameValueList | Where-Object { $_.Name -eq 'Brand' } | ForEach-Object { [string]$_.Value })
         $prop65 = @($pi.ItemSpecifics.NameValueList | Where-Object { $_.Name -eq 'California Prop 65 Warning' })
-        if ($pi.Seller.UserID -ne 'gandakorea' -or [string]$pi.Currency -ne 'USD' -or [int]$pi.Quantity -ne 5 -or @($pi.PictureDetails.PictureURL).Count -ne $uploads.Count -or @($pi.ItemCompatibilityList.Compatibility).Count -ne $compatibilities.Count -or $brand -notcontains 'Genuine Hyundai Mobis' -or $prop65.Count -ne 0) {
+        if ($pi.Seller.UserID -ne 'gandakorea' -or [string]$pi.Currency -ne 'USD' -or [int]$pi.Quantity -ne 5 -or @($pi.PictureDetails.PictureURL).Count -ne $uploads.Count -or @($pi.ItemCompatibilityList.Compatibility).Count -ne $compatibilities.Count -or $brand -notcontains 'Genuine Hyundai Mobis' -or $prop65.Count -ne 0 -or -not ([string]$pi.Description).Contains($product.title)) {
             throw "Published audit mismatch: $($product.part)"
         }
     }

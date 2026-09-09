@@ -135,6 +135,12 @@ function Upload-EbayImage([string]$Path) {
 function New-Description($Product) {
     $base = Get-Content -Raw -LiteralPath (Join-Path $usDescriptionRoot ($Product.part + '\listing-description.html'))
     $base = $base.Replace($Product.usTitle, $Product.title)
+    $bodyTitle = [regex]'⭐Genuine[^<]+'
+    if ($bodyTitle.IsMatch($base)) {
+        $base = $bodyTitle.Replace($base, $Product.title, 1)
+    } else {
+        throw "Description title line was not found for $($Product.part)"
+    }
     $base
 }
 
@@ -308,6 +314,7 @@ foreach ($product in $products) {
         $offerCreate = Invoke-EbayJson -Uri 'https://api.ebay.com/sell/inventory/v1/offer' -Method POST -Body $offer
         Write-JsonFile $offerCreatePath $offerCreate
     }
+    Invoke-EbayJson -Uri ('https://api.ebay.com/sell/inventory/v1/offer/' + $offerCreate.offerId) -Method PUT -Body $offer | Out-Null
     $offerAudit = Invoke-EbayJson -Uri ('https://api.ebay.com/sell/inventory/v1/offer/' + $offerCreate.offerId) -Method GET
     Write-JsonFile (Join-Path $dir 'offer-audit-prepublish.json') $offerAudit
     if ($offerAudit.marketplaceId -ne 'EBAY_AU' -or $offerAudit.pricingSummary.price.currency -ne 'AUD' -or $offerAudit.pricingSummary.price.value -ne $product.price) {
@@ -334,7 +341,8 @@ foreach ($product in $products) {
         $publicProp65 = @($item.ItemSpecifics.NameValueList | Where-Object { $_.Name -eq 'California Prop 65 Warning' }).Count
         if ($null -eq $item -or $item.Seller.UserID -ne 'sihooshop' -or [string]$item.Currency -ne 'AUD' -or
             [int]$item.Quantity -ne 5 -or @($item.PictureDetails.PictureURL).Count -ne $uploads.Count -or
-            $publicCompatibilityCount -ne $selection.rows.Count -or $publicProp65 -ne 0) {
+            $publicCompatibilityCount -ne $selection.rows.Count -or $publicProp65 -ne 0 -or
+            -not ([string]$item.Description).Contains($product.title)) {
             throw "Published listing verification failed for $($product.part)"
         }
     }
