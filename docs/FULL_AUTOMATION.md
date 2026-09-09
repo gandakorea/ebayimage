@@ -1,5 +1,13 @@
 # eBay 완전 자동화 운영
 
+## 현재 연결 상태 (2026-09-10)
+
+- Vercel Production의 비공개 환경 변수와 Private Blob 연결 완료
+- 미국 OAuth 판매자 `gandakorea` / `EBAY_US` Identity 확인 완료
+- 호주 OAuth 판매자 `sihooshop` / `EBAY_AU` Identity 확인 완료
+- 예약 작업은 외부 URL을 다시 호출하지 않고 서버 내부 실행 함수를 직접 실행한다.
+- 계정 확인용 `/api/automation/preflight`는 `AUTOMATION_ADMIN_SECRET` 인증이 있어야 실행된다.
+
 ## 확정된 실행 흐름
 
 1. 사용자는 날짜별 작업표에 참고 아이템 번호, USD 가격, 배송 정책과 메모를 저장한다.

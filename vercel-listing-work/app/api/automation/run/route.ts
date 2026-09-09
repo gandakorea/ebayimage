@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { SavedBatch } from '@/lib/listing-work-store';
 import { readWorkBatch, saveWorkBatch } from '@/lib/work-batch-store';
+import { runAutomation } from '@/lib/run-automation';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -54,8 +55,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: true, state: 'awaiting_approval', itemCount: items.length, ...now });
   }
 
-  const workerSecret = process.env.AUTOMATION_WORKER_SECRET;
-  if (!workerSecret || !process.env.BLOB_READ_WRITE_TOKEN) {
+  if (!process.env.AUTOMATION_WORKER_SECRET || !process.env.BLOB_READ_WRITE_TOKEN) {
     await saveWorkBatch({ ...batch, automationStatus: 'needs_attention' });
     await notify(`[KOREA AUTOPARTS] ${now.date} 자동 작업 준비가 필요합니다. 비공개 사진 저장소와 작업 비밀키를 확인해 주세요.`);
     return NextResponse.json({ ok: false, state: 'waiting_configuration', itemCount: items.length, ...now }, { status: 503 });
@@ -70,19 +70,8 @@ export async function GET(request: NextRequest) {
       : item),
   }));
   await saveWorkBatch({ ...batch, groups: queuedGroups, automationStatus: 'queued' });
-  const dispatched = await fetch(new URL('/api/automation/execute', request.url), {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${workerSecret}` },
-    body: JSON.stringify({
-      date: batch.date,
-      scheduledTime: '17:00',
-      publishMode: batch.publishMode,
-      batchMemo: batch.batchMemo,
-      marketplaceOrder: ['EBAY_US', 'EBAY_AU'],
-      items,
-    }),
-  });
-  if (!dispatched.ok) {
+  const result = await runAutomation(batch.date);
+  if (!result.ok) {
     const failedAt = new Date().toISOString();
     const failedGroups = batch.groups.map((group) => ({
       ...group,
@@ -92,9 +81,9 @@ export async function GET(request: NextRequest) {
     }));
     await saveWorkBatch({ ...batch, groups: failedGroups, automationStatus: 'needs_attention' });
     await notify(`[KOREA AUTOPARTS] ${now.date} 자동 작업을 시작하지 못했습니다. 작업 서버를 확인해 주세요.`);
-    return NextResponse.json({ ok: false, state: 'dispatch_failed', status: dispatched.status, ...now }, { status: 502 });
+    return NextResponse.json({ ok: false, state: 'execution_failed', phase: result.phase, error: result.error, ...now }, { status: 422 });
   }
 
   await notify(`[KOREA AUTOPARTS] ${now.date} ${items.length}개 상품 자동 작업을 시작했습니다. 미국 작업 후 호주 작업 순서입니다.`);
-  return NextResponse.json({ ok: true, state: 'dispatched', itemCount: items.length, ...now });
+  return NextResponse.json({ ok: true, state: 'completed', itemCount: items.length, report: result.report, ...now });
 }
