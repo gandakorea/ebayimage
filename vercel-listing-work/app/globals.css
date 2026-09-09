@@ -207,6 +207,95 @@ textarea:disabled {
   padding: 0 clamp(20px, 4vw, 64px);
 }
 
+.automation-panel {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) 160px 220px auto;
+  gap: 16px;
+  align-items: end;
+  padding: 22px 24px;
+  margin: 0 0 22px;
+  border: 1px solid #d9e2ec;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #f7fbff 0%, #eef6ff 100%);
+  box-shadow: 0 12px 32px rgba(23, 48, 77, 0.08);
+}
+
+.automation-copy p {
+  margin: 0 0 5px;
+  color: #1769aa;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.automation-copy h2 {
+  margin: 0 0 5px;
+  color: #162b3d;
+  font-size: 19px;
+}
+
+.automation-copy span,
+.automation-panel label > span {
+  color: #64788b;
+  font-size: 12px;
+}
+
+.automation-panel label {
+  display: grid;
+  gap: 7px;
+}
+
+.automation-panel input[type='time'],
+.automation-panel select {
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid #cbd7e2;
+  border-radius: 10px;
+  background: #fff;
+  color: #1b2d3d;
+  font: inherit;
+}
+
+.automation-switch {
+  display: flex !important;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: #173b5e;
+  cursor: pointer;
+}
+
+.automation-switch input {
+  width: 17px;
+  height: 17px;
+  accent-color: #52c7a5;
+}
+
+.automation-switch span {
+  color: #fff !important;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+@media (max-width: 1050px) {
+  .automation-panel {
+    grid-template-columns: 1fr 1fr;
+  }
+  .automation-copy {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .automation-panel {
+    grid-template-columns: 1fr;
+  }
+  .automation-copy {
+    grid-column: auto;
+  }
+}
+
 .agent-board {
   min-width: 0;
   display: grid;

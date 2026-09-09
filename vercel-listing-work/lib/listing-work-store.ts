@@ -17,4 +17,8 @@ export type SavedBatch = {
   date: string;
   batchMemo: string;
   groups: AgentGroup[];
+  scheduledTime: string;
+  automationEnabled: boolean;
+  publishMode: 'automatic' | 'approval';
+  automationStatus?: 'waiting' | 'queued' | 'running' | 'needs_attention' | 'completed';
 };

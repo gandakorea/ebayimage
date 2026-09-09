@@ -103,15 +103,20 @@ export default function ListingWorkPage() {
   const [date, setDate] = useState('');
   const [groups, setGroups] = useState<AgentGroup[]>([]);
   const [batchMemo, setBatchMemo] = useState('');
+  const [scheduledTime, setScheduledTime] = useState('09:00');
+  const [automationEnabled, setAutomationEnabled] = useState(false);
+  const [publishMode, setPublishMode] = useState<'automatic' | 'approval'>('approval');
   const [ready, setReady] = useState(false);
   const [copied, setCopied] = useState(false);
   const [saveState, setSaveState] = useState<'saving' | 'saved' | 'error'>('saved');
-  const batchRef = useRef<SavedBatch>({ date: '', batchMemo: '', groups: [] });
+  const batchRef = useRef<SavedBatch>({
+    date: '', batchMemo: '', groups: [], scheduledTime: '09:00', automationEnabled: false, publishMode: 'approval',
+  });
   const skipAutosaveRef = useRef(true);
 
   useEffect(() => {
-    batchRef.current = { date, batchMemo, groups };
-  }, [batchMemo, date, groups]);
+    batchRef.current = { date, batchMemo, groups, scheduledTime, automationEnabled, publishMode };
+  }, [automationEnabled, batchMemo, date, groups, publishMode, scheduledTime]);
 
   useEffect(() => {
     let active = true;
@@ -124,12 +129,18 @@ export default function ListingWorkPage() {
         setDate(currentDate);
         setGroups(saved?.groups ?? makeGroups());
         setBatchMemo(saved?.batchMemo ?? '');
+        setScheduledTime(saved?.scheduledTime ?? '09:00');
+        setAutomationEnabled(saved?.automationEnabled ?? false);
+        setPublishMode(saved?.publishMode ?? 'approval');
       } catch {
         if (!active) return;
         const local = readLocalBatch(currentDate);
         setDate(currentDate);
         setGroups(local?.groups ?? makeGroups());
         setBatchMemo(local?.batchMemo ?? '');
+        setScheduledTime(local?.scheduledTime ?? '09:00');
+        setAutomationEnabled(local?.automationEnabled ?? false);
+        setPublishMode(local?.publishMode ?? 'approval');
         setSaveState('error');
       } finally {
         if (active) {
@@ -147,7 +158,7 @@ export default function ListingWorkPage() {
       skipAutosaveRef.current = false;
       return;
     }
-    const batch: SavedBatch = { date, batchMemo, groups };
+    const batch: SavedBatch = { date, batchMemo, groups, scheduledTime, automationEnabled, publishMode };
     setSaveState('saving');
     const timer = window.setTimeout(() => {
       void saveServerBatch(batch)
@@ -158,7 +169,7 @@ export default function ListingWorkPage() {
         });
     }, 600);
     return () => window.clearTimeout(timer);
-  }, [batchMemo, date, groups, ready]);
+  }, [automationEnabled, batchMemo, date, groups, publishMode, ready, scheduledTime]);
 
   useEffect(() => {
     const modelContext = (document as Document & { modelContext?: ModelContext }).modelContext;
@@ -241,7 +252,14 @@ export default function ListingWorkPage() {
           ? value.date
           : batchRef.current.date;
         const nextMemo = typeof value.batchMemo === 'string' ? value.batchMemo : '';
-        const nextBatch = { date: nextDate, batchMemo: nextMemo, groups: nextGroups };
+        const nextBatch: SavedBatch = {
+          date: nextDate,
+          batchMemo: nextMemo,
+          groups: nextGroups,
+          scheduledTime: batchRef.current.scheduledTime,
+          automationEnabled: batchRef.current.automationEnabled,
+          publishMode: batchRef.current.publishMode,
+        };
         await saveServerBatch(nextBatch);
         skipAutosaveRef.current = true;
         setDate(nextDate);
@@ -280,6 +298,9 @@ export default function ListingWorkPage() {
           found: true,
           date: selected.date,
           batchMemo: selected.batchMemo,
+          scheduledTime: selected.scheduledTime,
+          automationEnabled: selected.automationEnabled,
+          publishMode: selected.publishMode,
           agents: selected.groups.map((group) => ({
             agent: group.agent,
             items: group.items
@@ -315,6 +336,9 @@ export default function ListingWorkPage() {
       setDate(nextDate);
       setGroups(saved?.groups ?? makeGroups());
       setBatchMemo(saved?.batchMemo ?? '');
+      setScheduledTime(saved?.scheduledTime ?? '09:00');
+      setAutomationEnabled(saved?.automationEnabled ?? false);
+      setPublishMode(saved?.publishMode ?? 'approval');
       setSaveState('saved');
       setCopied(false);
     } catch {
@@ -358,6 +382,9 @@ export default function ListingWorkPage() {
     window.localStorage.removeItem(`${STORAGE_PREFIX}${date}`);
     setGroups(makeGroups());
     setBatchMemo('');
+    setScheduledTime('09:00');
+    setAutomationEnabled(false);
+    setPublishMode('approval');
     setSaveState('saved');
     setCopied(false);
   };
@@ -418,6 +445,29 @@ export default function ListingWorkPage() {
           <strong>{itemCount}개 상품</strong>
           <em><Check size={15} /> {saveState === 'saving' ? '서버 저장 중' : saveState === 'error' ? '저장 재시도 필요' : '서버 자동 저장'}</em>
         </div>
+      </section>
+
+      <section className="automation-panel" aria-label="클라우드 자동 작업 설정">
+        <div className="automation-copy">
+          <p>CLOUD AUTOMATION</p>
+          <h2>컴퓨터가 꺼져 있어도 예약 시간에 시작</h2>
+          <span>미국 계정을 먼저 완료한 뒤 호주 계정 작업을 시작합니다.</span>
+        </div>
+        <label>
+          <span>실행 시간 · 한국</span>
+          <input type="time" value={scheduledTime} onChange={(event) => setScheduledTime(event.target.value)} />
+        </label>
+        <label>
+          <span>최종 등록 방식</span>
+          <select value={publishMode} onChange={(event) => setPublishMode(event.target.value as 'automatic' | 'approval')}>
+            <option value="approval">휴대폰 승인 후 등록</option>
+            <option value="automatic">검수 통과 시 자동 등록</option>
+          </select>
+        </label>
+        <label className="automation-switch">
+          <input type="checkbox" checked={automationEnabled} onChange={(event) => setAutomationEnabled(event.target.checked)} />
+          <span>{automationEnabled ? '자동 작업 사용' : '자동 작업 중지'}</span>
+        </label>
       </section>
 
       <section className="listing-layout">
