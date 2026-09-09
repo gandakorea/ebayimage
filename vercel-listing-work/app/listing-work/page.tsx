@@ -11,7 +11,13 @@ import {
   StickyNote,
   Trash2,
 } from 'lucide-react';
-import type { AgentGroup, SavedBatch, ShippingPolicy, WorkItem } from '@/lib/listing-work-store';
+import type {
+  AgentGroup,
+  PreparationStatus,
+  SavedBatch,
+  ShippingPolicy,
+  WorkItem,
+} from '@/lib/listing-work-store';
 
 type ModelContext = {
   registerTool: (
@@ -36,6 +42,7 @@ function makeItem(): WorkItem {
     price: '',
     shippingPolicy: '7day normal',
     memo: '',
+    preparationStatus: 'waiting',
   };
 }
 
@@ -170,6 +177,36 @@ export default function ListingWorkPage() {
   }, [automationEnabled, batchMemo, date, groups, publishMode, ready, scheduledTime]);
 
   useEffect(() => {
+    if (!ready || !date) return;
+    const refreshStatuses = async () => {
+      try {
+        const saved = await readServerBatch(date);
+        if (!saved) return;
+        const remoteItems = new Map(saved.groups.flatMap((group) => group.items).map((item) => [item.id, item]));
+        setGroups((current) => current.map((group) => ({
+          ...group,
+          items: group.items.map((item) => {
+            const remote = remoteItems.get(item.id);
+            if (!remote?.statusUpdatedAt
+              || (item.statusUpdatedAt && remote.statusUpdatedAt <= item.statusUpdatedAt)) return item;
+            return {
+              ...item,
+              preparationStatus: remote.preparationStatus,
+              partNumber: remote.partNumber,
+              photoCount: remote.photoCount,
+              statusUpdatedAt: remote.statusUpdatedAt,
+            };
+          }),
+        })));
+      } catch {
+        // Keep the current form available while the next background refresh retries.
+      }
+    };
+    const timer = window.setInterval(() => void refreshStatuses(), 10000);
+    return () => window.clearInterval(timer);
+  }, [date, ready]);
+
+  useEffect(() => {
     const modelContext = (document as Document & { modelContext?: ModelContext }).modelContext;
     if (!ready || !modelContext?.registerTool) return;
     const lifecycle = new AbortController();
@@ -273,7 +310,7 @@ export default function ListingWorkPage() {
     }, { signal: lifecycle.signal }), modelContext.registerTool({
       name: 'read_listing_work_batch',
       title: '리스팅 작업표 읽기',
-      description: '현재 화면 또는 지정한 날짜에 저장된 eBay 리스팅 작업표의 아이템 번호, 가격, 배송 정책과 메모를 읽습니다.',
+      description: '현재 화면 또는 지정한 날짜에 저장된 eBay 리스팅 작업표의 아이템 번호, 가격, 배송 정책, 메모와 준비 상태를 읽습니다.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -303,14 +340,68 @@ export default function ListingWorkPage() {
             agent: group.agent,
             items: group.items
               .filter((item) => item.itemNumber.trim())
-              .map(({ itemNumber, price, shippingPolicy, memo }) => ({
+              .map(({ id, itemNumber, price, shippingPolicy, memo, preparationStatus, partNumber, photoCount }) => ({
+                id,
                 itemNumber: itemNumber.trim(),
                 price: formatPrice(price),
                 shippingPolicy,
                 memo: memo.trim(),
+                preparationStatus: preparationStatus ?? 'waiting',
+                partNumber: partNumber ?? '',
+                photoCount: photoCount ?? 0,
               })),
           })),
         };
+      },
+    }, { signal: lifecycle.signal }), modelContext.registerTool({
+      name: 'update_listing_work_item_status',
+      title: '상품 준비 상태 갱신',
+      description: '사진 작업의 시작, 완료 또는 확인 필요 상태를 날짜별 작업표의 해당 상품에 기록합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          date: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
+          itemId: { type: 'string' },
+          status: { enum: ['working', 'completed', 'needs_attention'] },
+          partNumber: { type: 'string' },
+          photoCount: { type: 'integer', minimum: 0 },
+        },
+        required: ['date', 'itemId', 'status'],
+        additionalProperties: false,
+      },
+      annotations: { readOnlyHint: false, untrustedContentHint: false },
+      async execute(input) {
+        if (!input || typeof input !== 'object') throw new Error('상품 상태 데이터가 필요합니다.');
+        const value = input as Record<string, unknown>;
+        if (typeof value.date !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(value.date)
+          || typeof value.itemId !== 'string'
+          || !['working', 'completed', 'needs_attention'].includes(String(value.status))
+          || (value.partNumber !== undefined && typeof value.partNumber !== 'string')
+          || (value.photoCount !== undefined && (!Number.isInteger(value.photoCount) || Number(value.photoCount) < 0))) {
+          throw new Error('상품 상태 형식을 확인해 주세요.');
+        }
+        const selected = await readServerBatch(value.date);
+        if (!selected) throw new Error('해당 날짜의 작업표를 찾지 못했습니다.');
+        let found = false;
+        const statusUpdatedAt = new Date().toISOString();
+        const nextGroups = selected.groups.map((group) => ({
+          ...group,
+          items: group.items.map((item) => {
+            if (item.id !== value.itemId) return item;
+            found = true;
+            return {
+              ...item,
+              preparationStatus: value.status as PreparationStatus,
+              partNumber: typeof value.partNumber === 'string' ? value.partNumber : item.partNumber,
+              photoCount: typeof value.photoCount === 'number' ? value.photoCount : item.photoCount,
+              statusUpdatedAt,
+            };
+          }),
+        }));
+        if (!found) throw new Error('해당 상품을 작업표에서 찾지 못했습니다.');
+        await saveServerBatch({ ...selected, groups: nextGroups });
+        if (value.date === batchRef.current.date) setGroups(nextGroups);
+        return { saved: true, date: value.date, itemId: value.itemId, status: value.status, statusUpdatedAt };
       },
     }, { signal: lifecycle.signal })];
     void Promise.all(registrations.map((registration) => Promise.resolve(registration))).catch(() => undefined);
@@ -349,10 +440,44 @@ export default function ListingWorkPage() {
     setGroups((current) => current.map((group) => group.agent === agent
       ? {
           ...group,
-          items: group.items.map((item) => item.id === id ? { ...item, ...patch } : item),
+          items: group.items.map((item) => item.id === id ? {
+            ...item,
+            ...patch,
+            preparationStatus: 'waiting',
+            partNumber: undefined,
+            photoCount: undefined,
+            statusUpdatedAt: new Date().toISOString(),
+          } : item),
         }
       : group));
     setCopied(false);
+  };
+
+  const markItemReady = async (agent: number, id: string) => {
+    const statusUpdatedAt = new Date().toISOString();
+    const nextGroups = groups.map((group) => group.agent === agent
+      ? {
+          ...group,
+          items: group.items.map((item) => item.id === id ? {
+            ...item,
+            preparationStatus: 'ready' as PreparationStatus,
+            statusUpdatedAt,
+          } : item),
+        }
+      : group);
+    const nextBatch: SavedBatch = {
+      date, batchMemo, groups: nextGroups, scheduledTime, automationEnabled, publishMode,
+    };
+    skipAutosaveRef.current = true;
+    setGroups(nextGroups);
+    setSaveState('saving');
+    try {
+      await saveServerBatch(nextBatch);
+      setSaveState('saved');
+    } catch {
+      window.localStorage.setItem(`${STORAGE_PREFIX}${date}`, JSON.stringify(nextBatch));
+      setSaveState('error');
+    }
   };
 
   const addItem = (agent: number) => {
@@ -486,6 +611,7 @@ export default function ListingWorkPage() {
                 <span>판매가격</span>
                 <span>배송 정책</span>
                 <span>상품 메모</span>
+                <span>작업 상태</span>
                 <span />
               </div>
 
@@ -530,6 +656,25 @@ export default function ListingWorkPage() {
                         onChange={(event) => updateItem(group.agent, item.id, { memo: event.target.value })}
                       />
                     </label>
+                    <div className={`item-progress ${item.preparationStatus ?? 'waiting'}`}>
+                      <button
+                        type="button"
+                        className="prepare-step"
+                        disabled={!item.itemNumber.trim() || item.preparationStatus === 'ready'
+                          || item.preparationStatus === 'working' || item.preparationStatus === 'completed'}
+                        onClick={() => void markItemReady(group.agent, item.id)}
+                      >
+                        <Check size={14} />
+                        {item.preparationStatus === 'working' ? '작업 중' : '준비'}
+                      </button>
+                      <button type="button" className="complete-step" disabled>
+                        <Check size={14} /> 완료
+                      </button>
+                      {item.partNumber && (
+                        <small>{item.partNumber}{typeof item.photoCount === 'number' ? ` · 사진 ${item.photoCount}장` : ''}</small>
+                      )}
+                      {item.preparationStatus === 'needs_attention' && <small>확인 필요</small>}
+                    </div>
                     <button
                       className="row-delete"
                       type="button"

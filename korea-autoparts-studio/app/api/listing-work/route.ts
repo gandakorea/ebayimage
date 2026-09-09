@@ -23,7 +23,12 @@ function validBatch(value: unknown): value is SavedBatch {
       && typeof item.itemNumber === 'string'
       && typeof item.price === 'string'
       && (item.shippingPolicy === '7day normal' || item.shippingPolicy === '7day fast')
-      && typeof item.memo === 'string'));
+      && typeof item.memo === 'string'
+      && (item.preparationStatus === undefined
+        || ['waiting', 'ready', 'working', 'completed', 'needs_attention'].includes(item.preparationStatus))
+      && (item.partNumber === undefined || typeof item.partNumber === 'string')
+      && (item.photoCount === undefined || (Number.isInteger(item.photoCount) && item.photoCount >= 0))
+      && (item.statusUpdatedAt === undefined || typeof item.statusUpdatedAt === 'string'));
 }
 
 export async function GET(request: NextRequest) {

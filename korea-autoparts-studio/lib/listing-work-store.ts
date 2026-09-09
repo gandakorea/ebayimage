@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 
 export type ShippingPolicy = '7day normal' | '7day fast';
+export type PreparationStatus = 'waiting' | 'ready' | 'working' | 'completed' | 'needs_attention';
 
 export type WorkItem = {
   id: string;
@@ -8,6 +9,10 @@ export type WorkItem = {
   price: string;
   shippingPolicy: ShippingPolicy;
   memo: string;
+  preparationStatus?: PreparationStatus;
+  partNumber?: string;
+  photoCount?: number;
+  statusUpdatedAt?: string;
 };
 
 export type AgentGroup = {

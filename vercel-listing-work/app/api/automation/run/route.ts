@@ -56,9 +56,9 @@ export async function GET(request: NextRequest) {
   }
 
   const items = batch.groups.flatMap((group) => group.items
-    .filter((item) => item.itemNumber.trim())
+    .filter((item) => item.itemNumber.trim() && item.preparationStatus === 'ready')
     .map((item) => ({ ...item, agent: group.agent })));
-  if (!items.length) return NextResponse.json({ ok: true, state: 'empty', ...now });
+  if (!items.length) return NextResponse.json({ ok: true, state: 'no_ready_items', ...now });
 
   const workerUrl = process.env.AUTOMATION_WORKER_URL;
   const workerSecret = process.env.AUTOMATION_WORKER_SECRET;
@@ -68,7 +68,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, state: 'waiting_configuration', itemCount: items.length, ...now }, { status: 503 });
   }
 
-  await saveBatch({ ...batch, automationStatus: 'queued' });
+  const queuedAt = new Date().toISOString();
+  const queuedIds = new Set(items.map((item) => item.id));
+  const queuedGroups = batch.groups.map((group) => ({
+    ...group,
+    items: group.items.map((item) => queuedIds.has(item.id)
+      ? { ...item, preparationStatus: 'working' as const, statusUpdatedAt: queuedAt }
+      : item),
+  }));
+  await saveBatch({ ...batch, groups: queuedGroups, automationStatus: 'queued' });
   const dispatched = await fetch(workerUrl, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${workerSecret}` },
@@ -82,7 +90,14 @@ export async function GET(request: NextRequest) {
     }),
   });
   if (!dispatched.ok) {
-    await saveBatch({ ...batch, automationStatus: 'needs_attention' });
+    const failedAt = new Date().toISOString();
+    const failedGroups = batch.groups.map((group) => ({
+      ...group,
+      items: group.items.map((item) => queuedIds.has(item.id)
+        ? { ...item, preparationStatus: 'needs_attention' as const, statusUpdatedAt: failedAt }
+        : item),
+    }));
+    await saveBatch({ ...batch, groups: failedGroups, automationStatus: 'needs_attention' });
     await notify(`[KOREA AUTOPARTS] ${now.date} 자동 작업을 시작하지 못했습니다. 작업 서버를 확인해 주세요.`);
     return NextResponse.json({ ok: false, state: 'dispatch_failed', status: dispatched.status, ...now }, { status: 502 });
   }
