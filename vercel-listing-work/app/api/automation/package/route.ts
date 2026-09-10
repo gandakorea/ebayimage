@@ -25,7 +25,7 @@ async function verifyImages(pkg: ListingPackage) {
     const image = pkg.images[index];
     const expected = index === 0 ? `${pkg.partNumber}.png` : `${pkg.partNumber}_${index}.png`;
     if (image.filename !== expected) throw new Error(`사진 순서/파일명 불일치: ${image.filename} (예상 ${expected})`);
-    const stored = await get(image.url, { access: 'private' });
+    const stored = await get(image.pathname, { access: 'private' });
     if (!stored || stored.statusCode !== 200 || !stored.stream) throw new Error(`비공개 사진을 읽지 못했습니다: ${image.filename}`);
     const bytes = new Uint8Array(await new Response(stored.stream).arrayBuffer());
     const dimensions = pngSize(bytes);

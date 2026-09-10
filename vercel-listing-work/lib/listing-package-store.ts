@@ -20,7 +20,7 @@ export async function loadListingPackage(date: string, itemId: string) {
   const result = await list({ prefix: packagePath(date, itemId), limit: 1 });
   const blob = result.blobs.find((candidate) => candidate.pathname === packagePath(date, itemId));
   if (!blob) throw new Error('검수 완료된 등록 패키지를 찾지 못했습니다.');
-  const response = await get(blob.url, { access: 'private' });
+  const response = await get(blob.pathname, { access: 'private' });
   if (!response || response.statusCode !== 200 || !response.stream) throw new Error('등록 패키지를 읽지 못했습니다.');
   const value = JSON.parse(await new Response(response.stream).text()) as unknown;
   validateListingPackage(value);

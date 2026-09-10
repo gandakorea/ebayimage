@@ -69,7 +69,7 @@ export async function verifyIdentity(token: string, marketplace: Marketplace) {
 async function uploadImages(token: string, item: ListingPackage) {
   const urls: string[] = [];
   for (const image of item.images) {
-    const stored = await get(image.url, { access: 'private' });
+    const stored = await get(image.pathname, { access: 'private' });
     if (!stored || stored.statusCode !== 200 || !stored.stream) throw new Error(`사진 읽기 실패: ${image.filename}`);
     const bytes = await new Response(stored.stream).arrayBuffer();
     const form = new FormData();

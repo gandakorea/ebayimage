@@ -20,7 +20,7 @@ export async function readExecutionLedger(date: string, itemId: string) {
   const found = await list({ prefix: path, limit: 1 });
   const blob = found.blobs.find((candidate) => candidate.pathname === path);
   if (!blob) return null;
-  const response = await get(blob.url, { access: 'private' });
+  const response = await get(blob.pathname, { access: 'private' });
   if (!response || response.statusCode !== 200 || !response.stream) throw new Error('비공개 실행 기록을 읽지 못했습니다.');
   return JSON.parse(await new Response(response.stream).text()) as ExecutionLedger;
 }

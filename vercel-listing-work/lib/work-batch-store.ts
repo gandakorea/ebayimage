@@ -28,7 +28,7 @@ export async function readWorkBatch(date: string, migrateLegacy = true) {
   const found = await list({ prefix: pathname, limit: 1 });
   const blob = found.blobs.find((candidate) => candidate.pathname === pathname);
   if (blob) {
-    const response = await get(blob.url, { access: 'private' });
+    const response = await get(pathname, { access: 'private' });
     if (!response || response.statusCode !== 200 || !response.stream) throw new Error('작업표를 읽지 못했습니다.');
     const batch = JSON.parse(await new Response(response.stream).text()) as unknown;
     validate(batch);
