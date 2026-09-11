@@ -36,8 +36,11 @@ export async function GET(request: NextRequest) {
   const batch = await readWorkBatch(now.date);
   if (!batch) return NextResponse.json({ ok: true, state: 'no_batch', ...now });
   if (!batch.automationEnabled) return NextResponse.json({ ok: true, state: 'disabled', ...now });
-  if (now.time < '17:00') {
-    return NextResponse.json({ ok: true, state: 'waiting', scheduledTime: '17:00', ...now });
+  const scheduledTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(batch.scheduledTime)
+    ? batch.scheduledTime
+    : '17:00';
+  if (now.time < scheduledTime) {
+    return NextResponse.json({ ok: true, state: 'waiting', scheduledTime, ...now });
   }
   if (batch.automationStatus === 'queued' || batch.automationStatus === 'running'
     || batch.automationStatus === 'needs_attention' || batch.automationStatus === 'completed') {

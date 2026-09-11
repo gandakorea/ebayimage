@@ -110,7 +110,7 @@ export default function ListingWorkPage() {
   const [date, setDate] = useState('');
   const [groups, setGroups] = useState<AgentGroup[]>([]);
   const [batchMemo, setBatchMemo] = useState('');
-  const scheduledTime = '17:00';
+  const [scheduledTime, setScheduledTime] = useState('13:00');
   const [automationEnabled, setAutomationEnabled] = useState(false);
   const [publishMode, setPublishMode] = useState<'automatic' | 'approval'>('approval');
   const [ready, setReady] = useState(false);
@@ -118,7 +118,7 @@ export default function ListingWorkPage() {
   const [saveState, setSaveState] = useState<'saving' | 'saved' | 'error'>('saved');
   const [cloudReady, setCloudReady] = useState<boolean | null>(null);
   const batchRef = useRef<SavedBatch>({
-    date: '', batchMemo: '', groups: [], scheduledTime: '17:00', automationEnabled: false, publishMode: 'approval',
+    date: '', batchMemo: '', groups: [], scheduledTime: '13:00', automationEnabled: false, publishMode: 'approval',
   });
   const skipAutosaveRef = useRef(true);
 
@@ -142,6 +142,7 @@ export default function ListingWorkPage() {
         const saved = await readServerBatch(currentDate);
         if (!active) return;
         setDate(currentDate);
+        setScheduledTime(saved?.scheduledTime ?? '13:00');
         setGroups(saved?.groups ?? makeGroups());
         setBatchMemo(saved?.batchMemo ?? '');
         setAutomationEnabled(saved?.automationEnabled ?? false);
@@ -150,6 +151,7 @@ export default function ListingWorkPage() {
         if (!active) return;
         const local = readLocalBatch(currentDate);
         setDate(currentDate);
+        setScheduledTime(local?.scheduledTime ?? '13:00');
         setGroups(local?.groups ?? makeGroups());
         setBatchMemo(local?.batchMemo ?? '');
         setAutomationEnabled(local?.automationEnabled ?? false);
@@ -433,6 +435,7 @@ export default function ListingWorkPage() {
       const saved = await readServerBatch(nextDate);
       skipAutosaveRef.current = true;
       setDate(nextDate);
+      setScheduledTime(saved?.scheduledTime ?? (nextDate === todayInKorea() ? '13:00' : '17:00'));
       setGroups(saved?.groups ?? makeGroups());
       setBatchMemo(saved?.batchMemo ?? '');
       setAutomationEnabled(saved?.automationEnabled ?? false);
@@ -589,7 +592,10 @@ export default function ListingWorkPage() {
         </div>
         <label>
           <span>실행 시간 · 한국</span>
-          <strong className="fixed-run-time">오후 5:00</strong>
+          <select value={scheduledTime} onChange={(event) => setScheduledTime(event.target.value)}>
+            <option value="13:00">오후 1:00</option>
+            <option value="17:00">오후 5:00</option>
+          </select>
         </label>
         <label>
           <span>최종 등록 방식</span>
