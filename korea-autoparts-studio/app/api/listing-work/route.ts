@@ -28,7 +28,7 @@ function validBatch(value: unknown): value is SavedBatch {
         || ['waiting', 'ready', 'working', 'completed', 'needs_attention'].includes(item.preparationStatus))
       && (item.partNumber === undefined || typeof item.partNumber === 'string')
       && (item.photoCount === undefined || (Number.isInteger(item.photoCount) && item.photoCount >= 0))
-      && (item.statusUpdatedAt === undefined || typeof item.statusUpdatedAt === 'string'));
+      && (item.statusUpdatedAt === undefined || typeof item.statusUpdatedAt === 'string')));
 }
 
 export async function GET(request: NextRequest) {

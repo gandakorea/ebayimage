@@ -52,12 +52,6 @@ export async function GET(request: NextRequest) {
     .map((item) => ({ ...item, agent: group.agent })));
   if (!items.length) return NextResponse.json({ ok: true, state: 'no_ready_items', ...now });
 
-  if (batch.publishMode !== 'automatic') {
-    await saveWorkBatch({ ...batch, automationStatus: 'needs_attention' });
-    await notify(`[KOREA AUTOPARTS] ${now.date} 등록 패키지가 준비됐습니다. 작업표에서 최종 등록 방식을 자동 등록으로 바꾸면 다음 실행에서 시작합니다.`);
-    return NextResponse.json({ ok: true, state: 'awaiting_approval', itemCount: items.length, ...now });
-  }
-
   if (!process.env.AUTOMATION_WORKER_SECRET || !process.env.BLOB_READ_WRITE_TOKEN) {
     await saveWorkBatch({ ...batch, automationStatus: 'needs_attention' });
     await notify(`[KOREA AUTOPARTS] ${now.date} 자동 작업 준비가 필요합니다. 비공개 사진 저장소와 작업 비밀키를 확인해 주세요.`);

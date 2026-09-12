@@ -112,13 +112,13 @@ export default function ListingWorkPage() {
   const [batchMemo, setBatchMemo] = useState('');
   const [scheduledTime, setScheduledTime] = useState('13:00');
   const [automationEnabled, setAutomationEnabled] = useState(false);
-  const [publishMode, setPublishMode] = useState<'automatic' | 'approval'>('approval');
+  const [publishMode, setPublishMode] = useState<'automatic' | 'approval'>('automatic');
   const [ready, setReady] = useState(false);
   const [copied, setCopied] = useState(false);
   const [saveState, setSaveState] = useState<'saving' | 'saved' | 'error'>('saved');
   const [cloudReady, setCloudReady] = useState<boolean | null>(null);
   const batchRef = useRef<SavedBatch>({
-    date: '', batchMemo: '', groups: [], scheduledTime: '13:00', automationEnabled: false, publishMode: 'approval',
+    date: '', batchMemo: '', groups: [], scheduledTime: '13:00', automationEnabled: false, publishMode: 'automatic',
   });
   const skipAutosaveRef = useRef(true);
 
@@ -146,7 +146,7 @@ export default function ListingWorkPage() {
         setGroups(saved?.groups ?? makeGroups());
         setBatchMemo(saved?.batchMemo ?? '');
         setAutomationEnabled(saved?.automationEnabled ?? false);
-        setPublishMode(saved?.publishMode ?? 'approval');
+        setPublishMode('automatic');
       } catch {
         if (!active) return;
         const local = readLocalBatch(currentDate);
@@ -155,7 +155,7 @@ export default function ListingWorkPage() {
         setGroups(local?.groups ?? makeGroups());
         setBatchMemo(local?.batchMemo ?? '');
         setAutomationEnabled(local?.automationEnabled ?? false);
-        setPublishMode(local?.publishMode ?? 'approval');
+        setPublishMode('automatic');
         setSaveState('error');
       } finally {
         if (active) {
@@ -439,7 +439,7 @@ export default function ListingWorkPage() {
       setGroups(saved?.groups ?? makeGroups());
       setBatchMemo(saved?.batchMemo ?? '');
       setAutomationEnabled(saved?.automationEnabled ?? false);
-      setPublishMode(saved?.publishMode ?? 'approval');
+      setPublishMode('automatic');
       setSaveState('saved');
       setCopied(false);
     } catch {
@@ -518,7 +518,7 @@ export default function ListingWorkPage() {
     setGroups(makeGroups());
     setBatchMemo('');
     setAutomationEnabled(false);
-    setPublishMode('approval');
+    setPublishMode('automatic');
     setSaveState('saved');
     setCopied(false);
   };
@@ -599,10 +599,7 @@ export default function ListingWorkPage() {
         </label>
         <label>
           <span>최종 등록 방식</span>
-          <select value={publishMode} onChange={(event) => setPublishMode(event.target.value as 'automatic' | 'approval')}>
-            <option value="approval">휴대폰 승인 후 등록</option>
-            <option value="automatic">검수 통과 시 자동 등록</option>
-          </select>
+          <strong className="fixed-run-time">검수 통과 시 자동 등록</strong>
         </label>
         <label className="automation-switch">
           <input type="checkbox" checked={automationEnabled} onChange={(event) => setAutomationEnabled(event.target.checked)} />
