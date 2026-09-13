@@ -16,6 +16,7 @@ export type WorkItem = {
   price: string;
   shippingPolicy: ShippingPolicy;
   memo: string;
+  executionMode?: 'immediate' | 'scheduled';
   preparationStatus?: PreparationStatus;
   partNumber?: string;
   photoCount?: number;

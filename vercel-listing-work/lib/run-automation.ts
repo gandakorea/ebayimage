@@ -21,13 +21,16 @@ function updateItem(batch: SavedBatch, id: string, change: Partial<WorkItem>, au
   } satisfies SavedBatch;
 }
 
-export async function runAutomation(date: string, dryRun = false) {
+export async function runAutomation(date: string, dryRun = false, itemIds?: string[]) {
   const storedBatch = await readWorkBatch(date);
   if (!storedBatch) throw new Error('작업표를 찾지 못했습니다.');
   let batch: SavedBatch = { ...storedBatch, automationStatus: 'running' };
   await saveWorkBatch(batch);
+  const selectedIds = itemIds ? new Set(itemIds) : null;
   const items = batch.groups.flatMap((group) => group.items)
-    .filter((item) => item.itemNumber.trim() && ['ready', 'working'].includes(item.preparationStatus ?? ''));
+    .filter((item) => item.itemNumber.trim()
+      && ['ready', 'working'].includes(item.preparationStatus ?? '')
+      && (!selectedIds || selectedIds.has(item.id)));
   const report: Array<Record<string, unknown>> = [];
 
   // Account separation is structural: every US item finishes before the first AU mutation starts.
@@ -94,7 +97,11 @@ export async function runAutomation(date: string, dryRun = false) {
     }
   }
 
-  batch = { ...batch, automationStatus: 'completed' };
+  const remainingScheduledItems = batch.groups.flatMap((group) => group.items).some((item) =>
+    item.itemNumber.trim()
+    && item.executionMode === 'scheduled'
+    && item.preparationStatus !== 'completed');
+  batch = { ...batch, automationStatus: remainingScheduledItems ? 'waiting' : 'completed' };
   await saveWorkBatch(batch);
   await notify(`[KOREA AUTOPARTS] ${date} 자동 등록 완료. 미국 ${items.length}개 후 호주 ${items.length}개를 검수했습니다.`);
   return { ok: true as const, state: dryRun ? 'dry_run_completed' : 'completed', report };

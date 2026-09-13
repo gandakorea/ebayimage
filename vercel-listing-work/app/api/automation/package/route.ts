@@ -4,9 +4,10 @@ import type { ListingPackage } from '@/lib/automation-types';
 import { validateListingPackage } from '@/lib/automation-types';
 import { saveListingPackage } from '@/lib/listing-package-store';
 import { readWorkBatch, saveWorkBatch } from '@/lib/work-batch-store';
+import { runAutomation } from '@/lib/run-automation';
 
 export const runtime = 'nodejs';
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 function authorized(request: NextRequest) {
   const secret = process.env.AUTOMATION_ADMIN_SECRET;
@@ -47,6 +48,7 @@ async function markReady(pkg: ListingPackage) {
   }) }));
   if (!found) throw new Error('작업표에서 해당 상품 칸을 찾지 못했습니다.');
   await saveWorkBatch({ ...batch, groups, automationStatus: 'waiting' });
+  return groups.flatMap((group) => group.items).find((item) => item.id === pkg.itemId);
 }
 
 export async function PUT(request: NextRequest) {
@@ -56,8 +58,18 @@ export async function PUT(request: NextRequest) {
     validateListingPackage(pkg);
     await verifyImages(pkg);
     await saveListingPackage(pkg);
-    await markReady(pkg);
-    return NextResponse.json({ ok: true, date: pkg.date, itemId: pkg.itemId, partNumber: pkg.partNumber, photoCount: pkg.images.length });
+    const item = await markReady(pkg);
+    const execution = item?.executionMode === 'immediate'
+      ? await runAutomation(pkg.date, false, [pkg.itemId])
+      : null;
+    return NextResponse.json({
+      ok: true,
+      date: pkg.date,
+      itemId: pkg.itemId,
+      partNumber: pkg.partNumber,
+      photoCount: pkg.images.length,
+      execution,
+    });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : '등록 패키지 저장 실패' }, { status: 400 });
   }

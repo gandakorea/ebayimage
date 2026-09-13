@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AlarmClock,
   CalendarDays,
   Check,
   ClipboardCopy,
@@ -62,6 +63,34 @@ function todayInKorea() {
   }).format(new Date());
 }
 
+function koreaTime() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return { date: `${value.year}-${value.month}-${value.day}`, time: `${value.hour}:${value.minute}` };
+}
+
+function nextDate(date: string) {
+  const value = new Date(`${date}T12:00:00+09:00`);
+  value.setUTCDate(value.getUTCDate() + 1);
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(value);
+}
+
+function reservationDate(selectedDate: string) {
+  const now = koreaTime();
+  if (selectedDate > now.date) return selectedDate;
+  return selectedDate === now.date && now.time < '17:00' ? now.date : nextDate(now.date);
+}
+
 function readLocalBatch(date: string): SavedBatch | null {
   try {
     const raw = window.localStorage.getItem(`${STORAGE_PREFIX}${date}`);
@@ -117,6 +146,7 @@ export default function ListingWorkPage() {
   const [copied, setCopied] = useState(false);
   const [saveState, setSaveState] = useState<'saving' | 'saved' | 'error'>('saved');
   const [cloudReady, setCloudReady] = useState<boolean | null>(null);
+  const [reservationNotice, setReservationNotice] = useState('');
   const batchRef = useRef<SavedBatch>({
     date: '', batchMemo: '', groups: [], scheduledTime: '13:00', automationEnabled: false, publishMode: 'automatic',
   });
@@ -193,23 +223,31 @@ export default function ListingWorkPage() {
         const saved = await readServerBatch(date);
         if (!saved) return;
         const remoteItems = new Map(saved.groups.flatMap((group) => group.items).map((item) => [item.id, item]));
-        setGroups((current) => current.map((group) => ({
-          ...group,
-          items: group.items.map((item) => {
+        setGroups((current) => {
+          let changed = false;
+          const next = current.map((group) => ({
+            ...group,
+            items: group.items.map((item) => {
             const remote = remoteItems.get(item.id);
             if (!remote?.statusUpdatedAt
               || (item.statusUpdatedAt && remote.statusUpdatedAt <= item.statusUpdatedAt)) return item;
+            changed = true;
             return {
               ...item,
               preparationStatus: remote.preparationStatus,
               partNumber: remote.partNumber,
               photoCount: remote.photoCount,
+              executionMode: remote.executionMode,
               statusUpdatedAt: remote.statusUpdatedAt,
               usResult: remote.usResult,
               auResult: remote.auResult,
             };
           }),
-        })));
+          }));
+          if (!changed) return current;
+          skipAutosaveRef.current = true;
+          return next;
+        });
       } catch {
         // Keep the current form available while the next background refresh retries.
       }
@@ -352,12 +390,13 @@ export default function ListingWorkPage() {
             agent: group.agent,
             items: group.items
               .filter((item) => item.itemNumber.trim())
-              .map(({ id, itemNumber, price, shippingPolicy, memo, preparationStatus, partNumber, photoCount }) => ({
+              .map(({ id, itemNumber, price, shippingPolicy, memo, executionMode, preparationStatus, partNumber, photoCount }) => ({
                 id,
                 itemNumber: itemNumber.trim(),
                 price: formatPrice(price),
                 shippingPolicy,
                 memo: memo.trim(),
+                executionMode: executionMode ?? 'immediate',
                 preparationStatus: preparationStatus ?? 'waiting',
                 partNumber: partNumber ?? '',
                 photoCount: photoCount ?? 0,
@@ -456,6 +495,7 @@ export default function ListingWorkPage() {
           items: group.items.map((item) => item.id === id ? {
             ...item,
             ...patch,
+            executionMode: undefined,
             preparationStatus: 'waiting',
             partNumber: undefined,
             photoCount: undefined,
@@ -473,6 +513,7 @@ export default function ListingWorkPage() {
           ...group,
           items: group.items.map((item) => item.id === id ? {
             ...item,
+            executionMode: 'immediate' as const,
             preparationStatus: 'working' as PreparationStatus,
             statusUpdatedAt,
           } : item),
@@ -489,6 +530,65 @@ export default function ListingWorkPage() {
       setSaveState('saved');
     } catch {
       window.localStorage.setItem(`${STORAGE_PREFIX}${date}`, JSON.stringify(nextBatch));
+      setSaveState('error');
+    }
+  };
+
+  const reserveAtFive = async () => {
+    const entered = groups.flatMap((group) => group.items).filter((item) => item.itemNumber.trim());
+    if (!entered.length) return;
+    const targetDate = reservationDate(date);
+    const statusUpdatedAt = new Date().toISOString();
+    const scheduledGroups = groups.map((group) => ({
+      ...group,
+      items: group.items.map((item) => item.itemNumber.trim() && item.preparationStatus !== 'completed' ? {
+        ...item,
+        executionMode: 'scheduled' as const,
+        preparationStatus: item.preparationStatus === 'ready' ? 'ready' : 'working' as PreparationStatus,
+        statusUpdatedAt,
+      } : item),
+    }));
+
+    let targetGroups = scheduledGroups;
+    let targetMemo = batchMemo;
+    if (targetDate !== date) {
+      const savedTarget = await readServerBatch(targetDate);
+      if (savedTarget) {
+        targetMemo = [savedTarget.batchMemo.trim(), batchMemo.trim()].filter(Boolean).join('\n');
+        targetGroups = savedTarget.groups.map((targetGroup) => {
+          const incoming = scheduledGroups.find((group) => group.agent === targetGroup.agent)?.items
+            .filter((item) => item.itemNumber.trim()) ?? [];
+          const existingNumbers = new Set(targetGroup.items.map((item) => item.itemNumber.trim()).filter(Boolean));
+          const additions = incoming.filter((item) => !existingNumbers.has(item.itemNumber.trim()));
+          const existingFilled = targetGroup.items.filter((item) => item.itemNumber.trim());
+          const merged = [...existingFilled, ...additions];
+          return { ...targetGroup, items: merged.length ? merged : [makeItem()] };
+        });
+      }
+    }
+
+    const nextBatch: SavedBatch = {
+      date: targetDate,
+      batchMemo: targetMemo,
+      groups: targetGroups,
+      scheduledTime: '17:00',
+      automationEnabled: true,
+      publishMode: 'automatic',
+      automationStatus: 'waiting',
+    };
+    setSaveState('saving');
+    try {
+      await saveServerBatch(nextBatch);
+      skipAutosaveRef.current = true;
+      setDate(targetDate);
+      setBatchMemo(targetMemo);
+      setGroups(targetGroups);
+      setScheduledTime('17:00');
+      setAutomationEnabled(true);
+      setPublishMode('automatic');
+      setReservationNotice(`${targetDate} 오후 5시 예약 완료`);
+      setSaveState('saved');
+    } catch {
       setSaveState('error');
     }
   };
@@ -581,30 +681,21 @@ export default function ListingWorkPage() {
         </div>
       </section>
 
-      <section className="automation-panel" aria-label="클라우드 자동 작업 설정">
+      <section className="automation-panel" aria-label="오후 5시 예약">
         <div className="automation-copy">
-          <p>CLOUD AUTOMATION</p>
-          <h2>컴퓨터가 꺼져 있어도 예약 시간에 시작</h2>
-          <span>미국 계정을 먼저 완료한 뒤 호주 계정 작업을 시작합니다.</span>
+          <p>REGISTRATION</p>
+          <h2>준비를 누르면 바로 작업 · 예약을 누르면 오후 5시 등록</h2>
+          <span>오후 5시 전에는 오늘, 오후 5시 이후에는 다음 날로 예약됩니다.</span>
           <strong className={cloudReady ? 'cloud-connected' : 'cloud-disconnected'}>
             {cloudReady === null ? '연결 확인 중' : cloudReady ? '자동 등록 연결 완료' : '비공개 설정 연결 필요'}
           </strong>
         </div>
-        <label>
-          <span>실행 시간 · 한국</span>
-          <select value={scheduledTime} onChange={(event) => setScheduledTime(event.target.value)}>
-            <option value="13:00">오후 1:00</option>
-            <option value="17:00">오후 5:00</option>
-          </select>
-        </label>
-        <label>
-          <span>최종 등록 방식</span>
-          <strong className="fixed-run-time">검수 통과 시 자동 등록</strong>
-        </label>
-        <label className="automation-switch">
-          <input type="checkbox" checked={automationEnabled} onChange={(event) => setAutomationEnabled(event.target.checked)} />
-          <span>{automationEnabled ? '자동 작업 사용' : '자동 작업 중지'}</span>
-        </label>
+        <div className="reservation-action">
+          {reservationNotice && <small>{reservationNotice}</small>}
+          <button type="button" onClick={() => void reserveAtFive()} disabled={itemCount === 0}>
+            <AlarmClock size={19} /> 오후 5시 예약
+          </button>
+        </div>
       </section>
 
       <section className="listing-layout">
@@ -676,13 +767,15 @@ export default function ListingWorkPage() {
                       <button
                         type="button"
                         className="prepare-step"
-                        disabled={!item.itemNumber.trim() || item.preparationStatus === 'ready'
-                          || item.preparationStatus === 'working' || item.preparationStatus === 'completed'}
+                        disabled={!item.itemNumber.trim() || item.preparationStatus === 'completed'
+                          || (item.preparationStatus === 'working' && item.executionMode === 'immediate')}
                         onClick={() => void markItemReady(group.agent, item.id)}
                       >
                         <Check size={14} />
-                        {item.preparationStatus === 'working' ? '준비 중'
-                          : item.preparationStatus === 'ready' ? '준비 완료'
+                        {item.preparationStatus === 'working' && item.executionMode === 'scheduled' ? '예약 준비 중'
+                          : item.preparationStatus === 'working' ? '준비 중'
+                            : item.preparationStatus === 'ready' && item.executionMode === 'scheduled' ? '5시 준비 완료'
+                              : item.preparationStatus === 'ready' ? '바로 등록'
                             : item.preparationStatus === 'completed' ? '등록 완료' : '준비'}
                       </button>
                       <button type="button" className="complete-step" disabled={item.preparationStatus !== 'completed'}>

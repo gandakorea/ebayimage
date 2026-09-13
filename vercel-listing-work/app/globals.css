@@ -209,7 +209,7 @@ textarea:disabled {
 
 .automation-panel {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) 160px 220px auto;
+  grid-template-columns: minmax(280px, 1fr) auto;
   gap: 16px;
   align-items: end;
   padding: 22px 24px;
@@ -234,78 +234,57 @@ textarea:disabled {
   font-size: 19px;
 }
 
-.automation-copy span,
-.automation-panel label > span {
+.automation-copy span {
   color: #64788b;
   font-size: 12px;
 }
 
-.automation-panel label {
+.reservation-action {
   display: grid;
+  justify-items: end;
   gap: 7px;
 }
 
-.automation-panel input[type='time'],
-.automation-panel select {
-  min-height: 42px;
-  padding: 0 12px;
-  border: 1px solid #cbd7e2;
-  border-radius: 10px;
-  background: #fff;
-  color: #1b2d3d;
-  font: inherit;
+.reservation-action small {
+  color: #1769aa;
+  font-size: 12px;
+  font-weight: 800;
 }
 
-.fixed-run-time {
-  display: flex;
+.reservation-action button {
+  min-height: 46px;
+  display: inline-flex;
   align-items: center;
-  min-height: 42px;
-  padding: 0 12px;
-  border: 1px solid #cbd7e2;
-  border-radius: 10px;
-  background: #fff;
-  color: #173b5e;
-  font-size: 15px;
-}
-
-.automation-switch {
-  display: flex !important;
-  align-items: center;
-  min-height: 42px;
-  padding: 0 14px;
-  border-radius: 10px;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 11px;
   background: #173b5e;
+  color: #fff;
+  font: inherit;
+  font-weight: 850;
   cursor: pointer;
 }
 
-.automation-switch input {
-  width: 17px;
-  height: 17px;
-  accent-color: #52c7a5;
+.reservation-action button:hover:not(:disabled) {
+  background: #0f2f4e;
 }
 
-.automation-switch span {
-  color: #fff !important;
-  font-weight: 750;
-  white-space: nowrap;
+.reservation-action button:disabled {
+  cursor: not-allowed;
+  opacity: .45;
 }
 
 @media (max-width: 1050px) {
-  .automation-panel {
-    grid-template-columns: 1fr 1fr;
-  }
-  .automation-copy {
-    grid-column: 1 / -1;
-  }
+  .automation-panel { grid-template-columns: 1fr auto; }
 }
 
 @media (max-width: 640px) {
   .automation-panel {
     grid-template-columns: 1fr;
   }
-  .automation-copy {
-    grid-column: auto;
-  }
+  .reservation-action { justify-items: stretch; }
 }
 
 .agent-board {

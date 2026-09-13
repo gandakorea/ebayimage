@@ -48,7 +48,8 @@ export async function GET(request: NextRequest) {
   }
 
   const items = batch.groups.flatMap((group) => group.items
-    .filter((item) => item.itemNumber.trim() && item.preparationStatus === 'ready')
+    .filter((item) => item.itemNumber.trim() && item.preparationStatus === 'ready'
+      && item.executionMode !== 'immediate')
     .map((item) => ({ ...item, agent: group.agent })));
   if (!items.length) return NextResponse.json({ ok: true, state: 'no_ready_items', ...now });
 
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
       : item),
   }));
   await saveWorkBatch({ ...batch, groups: queuedGroups, automationStatus: 'queued' });
-  const result = await runAutomation(batch.date);
+  const result = await runAutomation(batch.date, false, items.map((item) => item.id));
   if (!result.ok) {
     const failedAt = new Date().toISOString();
     const failedGroups = batch.groups.map((group) => ({
