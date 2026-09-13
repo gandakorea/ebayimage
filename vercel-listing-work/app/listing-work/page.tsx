@@ -534,43 +534,69 @@ export default function ListingWorkPage() {
     }
   };
 
-  const reserveAtFive = async () => {
-    const entered = groups.flatMap((group) => group.items).filter((item) => item.itemNumber.trim());
-    if (!entered.length) return;
+  const reserveItemAtFive = async (agent: number, id: string) => {
+    const selected = groups.find((group) => group.agent === agent)?.items.find((item) => item.id === id);
+    if (!selected?.itemNumber.trim()) return;
     const targetDate = reservationDate(date);
     const statusUpdatedAt = new Date().toISOString();
-    const scheduledGroups = groups.map((group) => ({
-      ...group,
-      items: group.items.map((item) => item.itemNumber.trim() && item.preparationStatus !== 'completed' ? {
-        ...item,
-        executionMode: 'scheduled' as const,
-        preparationStatus: item.preparationStatus === 'ready' ? 'ready' : 'working' as PreparationStatus,
-        statusUpdatedAt,
-      } : item),
-    }));
+    const scheduledItem: WorkItem = {
+      ...selected,
+      executionMode: 'scheduled',
+      preparationStatus: selected.preparationStatus === 'ready' ? 'ready' : 'working',
+      statusUpdatedAt,
+    };
 
-    let targetGroups = scheduledGroups;
-    let targetMemo = batchMemo;
-    if (targetDate !== date) {
-      const savedTarget = await readServerBatch(targetDate);
-      if (savedTarget) {
-        targetMemo = [savedTarget.batchMemo.trim(), batchMemo.trim()].filter(Boolean).join('\n');
-        targetGroups = savedTarget.groups.map((targetGroup) => {
-          const incoming = scheduledGroups.find((group) => group.agent === targetGroup.agent)?.items
-            .filter((item) => item.itemNumber.trim()) ?? [];
-          const existingNumbers = new Set(targetGroup.items.map((item) => item.itemNumber.trim()).filter(Boolean));
-          const additions = incoming.filter((item) => !existingNumbers.has(item.itemNumber.trim()));
-          const existingFilled = targetGroup.items.filter((item) => item.itemNumber.trim());
-          const merged = [...existingFilled, ...additions];
-          return { ...targetGroup, items: merged.length ? merged : [makeItem()] };
-        });
+    if (targetDate === date) {
+      const targetGroups = groups.map((group) => group.agent === agent ? {
+        ...group,
+        items: group.items.map((item) => item.id === id ? scheduledItem : item),
+      } : group);
+      const nextBatch: SavedBatch = {
+        date,
+        batchMemo,
+        groups: targetGroups,
+        scheduledTime: '17:00',
+        automationEnabled: true,
+        publishMode: 'automatic',
+        automationStatus: 'waiting',
+      };
+      setSaveState('saving');
+      try {
+        await saveServerBatch(nextBatch);
+        skipAutosaveRef.current = true;
+        setGroups(targetGroups);
+        setScheduledTime('17:00');
+        setAutomationEnabled(true);
+        setReservationNotice(`${targetDate} 오후 5시 · ${selected.itemNumber} 예약 완료`);
+        setSaveState('saved');
+      } catch {
+        setSaveState('error');
       }
+      return;
     }
+
+    const savedTarget = await readServerBatch(targetDate);
+    const targetGroups = savedTarget?.groups ?? makeGroups();
+    const nextTargetGroups = targetGroups.map((group) => {
+      if (group.agent !== agent) return group;
+      const existingIndex = group.items.findIndex((item) => item.itemNumber.trim() === selected.itemNumber.trim());
+      if (existingIndex >= 0) return {
+        ...group,
+        items: group.items.map((item, index) => index === existingIndex ? { ...scheduledItem, id: item.id } : item),
+      };
+      const filled = group.items.filter((item) => item.itemNumber.trim());
+      return { ...group, items: [...filled, { ...scheduledItem, id: crypto.randomUUID() }] };
+    });
+    const remainingGroups = groups.map((group) => {
+      if (group.agent !== agent) return group;
+      const remaining = group.items.filter((item) => item.id !== id);
+      return { ...group, items: remaining.length ? remaining : [makeItem()] };
+    });
 
     const nextBatch: SavedBatch = {
       date: targetDate,
-      batchMemo: targetMemo,
-      groups: targetGroups,
+      batchMemo: savedTarget?.batchMemo ?? '',
+      groups: nextTargetGroups,
       scheduledTime: '17:00',
       automationEnabled: true,
       publishMode: 'automatic',
@@ -579,14 +605,22 @@ export default function ListingWorkPage() {
     setSaveState('saving');
     try {
       await saveServerBatch(nextBatch);
+      await saveServerBatch({
+        date,
+        batchMemo,
+        groups: remainingGroups,
+        scheduledTime,
+        automationEnabled,
+        publishMode,
+      });
       skipAutosaveRef.current = true;
       setDate(targetDate);
-      setBatchMemo(targetMemo);
-      setGroups(targetGroups);
+      setBatchMemo(nextBatch.batchMemo);
+      setGroups(nextTargetGroups);
       setScheduledTime('17:00');
       setAutomationEnabled(true);
       setPublishMode('automatic');
-      setReservationNotice(`${targetDate} 오후 5시 예약 완료`);
+      setReservationNotice(`${targetDate} 오후 5시 · ${selected.itemNumber} 예약 완료`);
       setSaveState('saved');
     } catch {
       setSaveState('error');
@@ -690,12 +724,7 @@ export default function ListingWorkPage() {
             {cloudReady === null ? '연결 확인 중' : cloudReady ? '자동 등록 연결 완료' : '비공개 설정 연결 필요'}
           </strong>
         </div>
-        <div className="reservation-action">
-          {reservationNotice && <small>{reservationNotice}</small>}
-          <button type="button" onClick={() => void reserveAtFive()} disabled={itemCount === 0}>
-            <AlarmClock size={19} /> 오후 5시 예약
-          </button>
-        </div>
+        {reservationNotice && <strong className="reservation-notice">{reservationNotice}</strong>}
       </section>
 
       <section className="listing-layout">
@@ -763,7 +792,7 @@ export default function ListingWorkPage() {
                         onChange={(event) => updateItem(group.agent, item.id, { memo: event.target.value })}
                       />
                     </label>
-                    <div className={`item-progress ${item.preparationStatus ?? 'waiting'}`}>
+                    <div className={`item-progress ${item.preparationStatus ?? 'waiting'} ${item.executionMode ?? ''}`}>
                       <button
                         type="button"
                         className="prepare-step"
@@ -772,14 +801,18 @@ export default function ListingWorkPage() {
                         onClick={() => void markItemReady(group.agent, item.id)}
                       >
                         <Check size={14} />
-                        {item.preparationStatus === 'working' && item.executionMode === 'scheduled' ? '예약 준비 중'
-                          : item.preparationStatus === 'working' ? '준비 중'
-                            : item.preparationStatus === 'ready' && item.executionMode === 'scheduled' ? '5시 준비 완료'
-                              : item.preparationStatus === 'ready' ? '바로 등록'
-                            : item.preparationStatus === 'completed' ? '등록 완료' : '준비'}
+                        {item.preparationStatus === 'working' && item.executionMode !== 'scheduled' ? '준비 중'
+                          : item.preparationStatus === 'ready' && item.executionMode !== 'scheduled' ? '바로 등록'
+                            : item.preparationStatus === 'completed' ? '등록 완료' : '바로 작업'}
                       </button>
-                      <button type="button" className="complete-step" disabled={item.preparationStatus !== 'completed'}>
-                        <Check size={14} /> 완료
+                      <button
+                        type="button"
+                        className="reservation-step"
+                        disabled={!item.itemNumber.trim() || item.preparationStatus === 'completed'}
+                        onClick={() => void reserveItemAtFive(group.agent, item.id)}
+                      >
+                        <AlarmClock size={14} />
+                        {item.executionMode === 'scheduled' ? '5시 예약됨' : '5시 예약'}
                       </button>
                       {item.partNumber && (
                         <small>{item.partNumber}{typeof item.photoCount === 'number' ? ` · 사진 ${item.photoCount}장` : ''}</small>
