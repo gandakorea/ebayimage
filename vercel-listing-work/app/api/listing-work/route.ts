@@ -17,9 +17,29 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const batch = await request.json() as SavedBatch;
+    const incoming = await request.json() as SavedBatch;
+    const stored = await readWorkBatch(incoming.date, false);
+    const storedItems = new Map(stored?.groups.flatMap((group) => group.items).map((item) => [item.id, item]) ?? []);
+    const groups = incoming.groups.map((group) => ({
+      ...group,
+      items: group.items.map((item) => {
+        const saved = storedItems.get(item.id);
+        if (!saved?.statusUpdatedAt || (item.statusUpdatedAt && item.statusUpdatedAt >= saved.statusUpdatedAt)) return item;
+        return {
+          ...item,
+          executionMode: saved.executionMode,
+          preparationStatus: saved.preparationStatus,
+          partNumber: saved.partNumber,
+          photoCount: saved.photoCount,
+          statusUpdatedAt: saved.statusUpdatedAt,
+          usResult: saved.usResult,
+          auResult: saved.auResult,
+        };
+      }),
+    }));
+    const batch = { ...incoming, groups };
     await saveWorkBatch(batch);
-    const itemCount = batch.groups.flatMap((group) => group.items).filter((item) => item.itemNumber.trim()).length;
+    const itemCount = groups.flatMap((group) => group.items).filter((item) => item.itemNumber.trim()).length;
     return NextResponse.json({ saved: true, itemCount, updatedAt: new Date().toISOString() });
   } catch (error) {
     console.error('listing-work PUT failed:', error instanceof Error ? error.message : 'unknown error');
