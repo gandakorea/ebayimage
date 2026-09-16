@@ -22,12 +22,18 @@ try {
   throw "GetItem failed for $ItemId`: $message"
  }
  $dir = Join-Path $root "작업중/ebay-$ItemId"
+ if (-not $Quiet) { Write-Output "Saving to $dir" }
  New-Item -ItemType Directory -Path $dir -Force | Out-Null
- $result.Save((Join-Path $dir 'item.xml'))
+ $xmlPath = Join-Path $dir 'item.xml'
+ [IO.File]::WriteAllText($xmlPath, $result.OuterXml, [Text.UTF8Encoding]::new($false))
  if ($Quiet) {
   $count = @($result.GetItemResponse.Item.ItemCompatibilityList.Compatibility).Count
   Write-Output "Saved item $ItemId with $count compatibility rows."
  } else {
   $result.OuterXml
  }
-} catch { Write-Output ('Request failed: ' + $_.Exception.Message); exit 1 }
+} catch {
+ Write-Output ('Request failed: ' + $_.Exception.Message)
+ if ($_.ScriptStackTrace) { Write-Output $_.ScriptStackTrace }
+ exit 1
+}
