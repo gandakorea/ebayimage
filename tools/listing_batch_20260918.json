@@ -1,0 +1,100 @@
+[
+  {
+    "itemId": "013e8dcc-7ed8-428d-86c9-323f53872439",
+    "reference": "334438850072",
+    "part": "83650-4H150_83660-4H150",
+    "compactPart": "836504H150, 836604H150",
+    "categoryId": "50459",
+    "usd": "175.29",
+    "shipping": "7day fast",
+    "title": "⭐Genuine Unpainted Door Handle Catch Left Right 2EA For Hyundai H1 2007-2015",
+    "partWords": "rear sliding door outside handle left and right pair",
+    "usStores": [
+      "13657193012"
+    ],
+    "auStores": [],
+    "auTargets": []
+  },
+  {
+    "itemId": "e79fdc95-a2e6-4d87-8945-7872da088466",
+    "reference": "232553407179",
+    "part": "55130-4D000",
+    "compactPart": "551304D000",
+    "categoryId": "9886",
+    "usd": "81.18",
+    "shipping": "7day normal",
+    "title": "⭐Genuine 551304D000 Pillow Ball Bush For Hyundai Kia",
+    "partWords": "rear suspension pillow ball bush",
+    "usStores": [],
+    "auStores": [],
+    "auTargets": [
+      {
+        "make": "Hyundai",
+        "model": "Elantra",
+        "minYear": 2006,
+        "maxYear": 2010,
+        "enginePattern": "2.0L|1975cc"
+      },
+      {
+        "make": "Hyundai",
+        "model": "Santa Fe",
+        "minYear": 2007,
+        "maxYear": 2009,
+        "enginePattern": "2.7L|2656cc|3.3L|3342cc"
+      },
+      {
+        "make": "Kia",
+        "model": "Optima",
+        "minYear": 2011,
+        "maxYear": 2015,
+        "enginePattern": "2.4L|2359cc"
+      }
+    ]
+  },
+  {
+    "itemId": "db235697-02cd-4560-9592-122d138bf58c",
+    "reference": "335913695538",
+    "part": "86576-3M500",
+    "compactPart": "865763M500",
+    "categoryId": "33640",
+    "usd": "136.47",
+    "shipping": "7day fast",
+    "title": "⭐Genuine Front Bumper Lower Molding Right For Hyundai Genesis 2012-2014",
+    "partWords": "front bumper lower molding right for Genesis BH sedan 2012-2014",
+    "usStores": [
+      "13250678012"
+    ],
+    "auStores": [
+      "/Hyundai/GENESIS"
+    ],
+    "auTargets": []
+  },
+  {
+    "itemId": "5c4c87aa-56c9-4c2d-9677-783627f4bb32",
+    "reference": "335849535403",
+    "part": "54610-C1000",
+    "compactPart": "54610C1000",
+    "categoryId": "33590",
+    "usd": "198.82",
+    "shipping": "7day fast",
+    "title": "⭐Genuine Front Strut Mount Insulator 2EA For Hyundai Sonata Kia Optima 2015-2020",
+    "partWords": "front strut mount insulator pair",
+    "usStores": [
+      "12974034012",
+      "13146861012"
+    ],
+    "auStores": [
+      "/Hyundai/Sonata",
+      "/Kia/Optima"
+    ],
+    "auTargets": [
+      {
+        "make": "Hyundai",
+        "model": "Sonata",
+        "minYear": 2015,
+        "maxYear": 2017,
+        "enginePattern": "2.0L|1998cc|2.4L|2359cc"
+      }
+    ]
+  }
+]
