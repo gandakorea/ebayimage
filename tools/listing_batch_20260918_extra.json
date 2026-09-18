@@ -1,0 +1,34 @@
+[
+  {
+    "itemId": "724dfa04-fa93-4937-82f5-0eef732565d3",
+    "reference": "234968830813",
+    "part": "83450-2S000",
+    "compactPart": "834502S000",
+    "categoryId": "33706",
+    "usd": "116.31",
+    "shipping": "7day normal",
+    "title": "⭐Genuine 834502S000 Power Window Motor Rear Left For Hyundai Tucson 2010-2017",
+    "partWords": "rear left power window motor",
+    "usStores": ["13180602012"],
+    "auStores": ["/Hyundai/Tucson"],
+    "auTargets": [
+      {"make": "Hyundai", "model": "Tucson", "minYear": 2010, "maxYear": 2017, "enginePattern": ""}
+    ]
+  },
+  {
+    "itemId": "7885227e-b998-41c4-9302-40fbed1ba2fd",
+    "reference": "324788743186",
+    "part": "86190-C1000",
+    "compactPart": "86190C1000",
+    "categoryId": "33654",
+    "usd": "57.21",
+    "shipping": "7day normal",
+    "title": "⭐Genuine 86190C1000 Fender Corner Molding Right For Hyundai Sonata 2015-2019",
+    "partWords": "right fender corner molding",
+    "usStores": ["12974034012"],
+    "auStores": ["/Hyundai/Sonata"],
+    "auTargets": [
+      {"make": "Hyundai", "model": "Sonata", "minYear": 2015, "maxYear": 2019, "enginePattern": ""}
+    ]
+  }
+]
