@@ -1,0 +1,66 @@
+[
+  {
+    "itemId": "4c757e5e-51d9-4f8b-a318-ca87f971967e",
+    "reference": "334780050144",
+    "part": "86190-C5000",
+    "compactPart": "86190C5000",
+    "categoryId": "33654",
+    "usd": "51.20",
+    "shipping": "7day normal",
+    "title": "⭐Genuine 86190C5000 Fender Corner Trim Right For Kia Sportage 2016-2020",
+    "partWords": "right fender corner trim",
+    "usStores": ["13180807012"],
+    "auStores": ["/Kia/Sportage"],
+    "auTargets": [
+      {"make": "Kia", "model": "Sportage", "minYear": 2016, "maxYear": 2020, "enginePattern": ""}
+    ]
+  },
+  {
+    "itemId": "ea9e48a7-6abf-4f15-91f3-560114f71cad",
+    "reference": "333917745547",
+    "part": "86350-2K050",
+    "compactPart": "863502K050",
+    "categoryId": "33645",
+    "usd": "232.94",
+    "shipping": "7day fast",
+    "title": "⭐Genuine 863502K050 Radiator Grille Upper For Kia Soul 1.6L 2.0L 2010-2011",
+    "partWords": "radiator grille upper",
+    "usStores": ["13146860012"],
+    "auStores": ["/Kia/Soul"],
+    "auTargets": [
+      {"make": "Kia", "model": "Soul", "minYear": 2010, "maxYear": 2011, "enginePattern": "(?i)Petrol"}
+    ]
+  },
+  {
+    "itemId": "187cceea-38af-48d5-b6f7-97bbb86f574f",
+    "reference": "233491678184",
+    "part": "86350-2P000",
+    "compactPart": "863502P000",
+    "categoryId": "33645",
+    "usd": "538.82",
+    "shipping": "7day fast",
+    "title": "⭐Genuine 863502P000 Radiator Grille With Emblem For Kia Sorento 2011-2013",
+    "partWords": "radiator grille with emblem",
+    "usStores": ["13179345012"],
+    "auStores": ["/Kia/Sorento"],
+    "auTargets": [
+      {"make": "Kia", "model": "Sorento", "minYear": 2011, "maxYear": 2013, "enginePattern": "(?i)Petrol"}
+    ]
+  },
+  {
+    "itemId": "6d839441-3cbf-4b0e-bb5d-a9d06a957df6",
+    "reference": "334083938058",
+    "part": "86350-S1000",
+    "compactPart": "86350S1000",
+    "categoryId": "33645",
+    "usd": "452.94",
+    "shipping": "7day fast",
+    "title": "⭐Genuine 86350S1000 Radiator Grille W/O Camera For Hyundai Santa Fe 2019-2020",
+    "partWords": "radiator grille without camera hole",
+    "usStores": ["13010908012"],
+    "auStores": ["/Hyundai/Santa Fe"],
+    "auTargets": [
+      {"make": "Hyundai", "model": "Santa Fe", "minYear": 2019, "maxYear": 2020, "enginePattern": ""}
+    ]
+  }
+]

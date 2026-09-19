@@ -4,6 +4,14 @@ import type { ShippingPolicy } from './listing-work-store';
 
 type Marketplace = 'US' | 'AU';
 
+export type AuCompatibilityTarget = {
+  make: string;
+  model: string;
+  minYear: number;
+  maxYear: number;
+  enginePattern?: string;
+};
+
 const apiBase = 'https://api.ebay.com';
 
 function required(name: string) {
@@ -137,6 +145,39 @@ async function ebayJson(token: string, marketplaceId: string, url: string, metho
   return value;
 }
 
+export async function getAuCompatibility(categoryId: string, targets: AuCompatibilityTarget[]) {
+  const token = await refreshToken('AU');
+  await verifyIdentity(token, 'AU');
+  const rows: CompatibilityRow[] = [];
+  const audit: Array<{ make: string; model: string; catalog: number; selected: number }> = [];
+  for (const target of targets) {
+    const result = await ebayJson(token, 'EBAY_AU', `${apiBase}/sell/metadata/v1/compatibilities/get_multi_compatibility_property_values`, 'POST', {
+      categoryId,
+      propertyFilters: [
+        { propertyName: 'Make', propertyValue: target.make },
+        { propertyName: 'Model', propertyValue: target.model },
+      ],
+      propertyNames: ['Year', 'Make', 'Model', 'Submodel', 'Variant', 'Engine'],
+    }) as { compatibilities?: Array<{ compatibilityDetails?: Array<{ propertyName?: string; propertyValue?: string }> }> };
+    const catalog = (result.compatibilities ?? []).map((entry) => Object.fromEntries(
+      (entry.compatibilityDetails ?? [])
+        .filter((detail) => detail.propertyName && detail.propertyValue)
+        .map((detail) => [detail.propertyName as string, detail.propertyValue as string]),
+    ));
+    const pattern = target.enginePattern ? new RegExp(target.enginePattern.replace(/^\(\?i\)/, ''), 'i') : null;
+    const selected = catalog.filter((row) => {
+      const year = Number(row.Year);
+      return Number.isInteger(year) && year >= target.minYear && year <= target.maxYear
+        && (!pattern || pattern.test(`${row.Variant ?? ''} ${row.Engine ?? ''}`));
+    });
+    rows.push(...selected);
+    audit.push({ make: target.make, model: target.model, catalog: catalog.length, selected: selected.length });
+  }
+  const unique = [...new Map(rows.map((row) => [JSON.stringify(row), row])).values()]
+    .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  return { rows: unique, audit };
+}
+
 async function audPrice(usd: string) {
   const manual = process.env.USD_AUD_RATE;
   let rate = manual ? Number(manual) : NaN;
@@ -173,9 +214,21 @@ export async function publishAu(item: ListingPackage, usd: string, shipping: Shi
     pricingSummary: { price: { value: converted.value, currency: 'AUD' } },
     storeCategoryNames: item.au.storeCategoryNames.slice(0, 2), listingDuration: 'GTC', includeCatalogProductDetails: true,
   };
-  const created = await ebayJson(token, 'EBAY_AU', `${apiBase}/sell/inventory/v1/offer`, 'POST', offer);
-  const offerId = String(created.offerId ?? '');
+  const found = await ebayJson(token, 'EBAY_AU', `${apiBase}/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}`, 'GET') as {
+    offers?: Array<{ offerId?: string; status?: string; listing?: { listingId?: string; listingStatus?: string } }>;
+  };
+  const existing = found.offers?.[0];
+  let offerId = String(existing?.offerId ?? '');
+  if (offerId) {
+    await ebayJson(token, 'EBAY_AU', `${apiBase}/sell/inventory/v1/offer/${encodeURIComponent(offerId)}`, 'PUT', offer);
+  } else {
+    const created = await ebayJson(token, 'EBAY_AU', `${apiBase}/sell/inventory/v1/offer`, 'POST', offer);
+    offerId = String(created.offerId ?? '');
+  }
   if (!offerId) throw new Error('호주 offerId를 확인하지 못했습니다.');
+  const activeListingId = existing?.status === 'PUBLISHED' && existing.listing?.listingStatus === 'ACTIVE'
+    ? String(existing.listing.listingId ?? '') : '';
+  if (activeListingId) return { listingId: activeListingId, listingUrl: `https://www.ebay.com.au/itm/${activeListingId}`, audPrice: converted.value, exchangeRate: converted.rate };
   const published = await ebayJson(token, 'EBAY_AU', `${apiBase}/sell/inventory/v1/offer/${encodeURIComponent(offerId)}/publish`, 'POST', {});
   const listingId = String(published.listingId ?? '');
   if (!listingId) throw new Error('호주 등록 후 listingId를 확인하지 못했습니다.');
