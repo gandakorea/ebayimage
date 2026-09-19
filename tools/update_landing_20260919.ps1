@@ -31,6 +31,7 @@ $response.batch|Add-Member -NotePropertyName automationStatus -NotePropertyValue
 $body=$response.batch|ConvertTo-Json -Depth 50 -Compress
 $saved=Invoke-RestMethod $endpoint -Method Put -ContentType 'application/json' -Body ([Text.Encoding]::UTF8.GetBytes($body))
 $check=Invoke-RestMethod "$endpoint`?date=$date"
-$done=@($check.batch.groups|ForEach-Object{$_.items}|Where-Object{$parts.ContainsKey([string]$_.id)-and$_.preparationStatus-eq'completed'}).Count
+$completedIds=@($check.batch.groups|ForEach-Object{$_.items}|Where-Object{$_.preparationStatus-eq'completed'}|ForEach-Object{[string]$_.id})
+$done=@($parts.Keys|Where-Object{$completedIds -contains [string]$_}).Count
 if($done-ne4-or$check.batch.automationStatus-ne'completed'){throw "Landing completion verification failed: $done"}
 [pscustomobject]@{saved=$saved.saved;completed=$done;automationStatus=$check.batch.automationStatus}|ConvertTo-Json
