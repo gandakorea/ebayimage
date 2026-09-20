@@ -1,0 +1,98 @@
+[
+  {
+    "itemId": "7de01e36-5fb8-417f-aece-dc898ebd7017",
+    "reference": "322000066377",
+    "part": "86351-3M500",
+    "compactPart": "863513M500",
+    "categoryId": "33645",
+    "usd": "468.24",
+    "shipping": "7day fast",
+    "title": "⭐Genuine 863513M500 Radiator Grille For Hyundai Genesis Sedan 2012-2014",
+    "partWords": "radiator grille",
+    "usStores": ["13250678012"],
+    "auStores": ["/Hyundai/Genesis"],
+    "auTargets": [
+      {"make": "Hyundai", "model": "Genesis", "minYear": 2012, "maxYear": 2014, "enginePattern": "(?i)\\bBH\\b"}
+    ]
+  },
+  {
+    "itemId": "44ec7d82-ee62-437c-ae9c-753c10bd90f3",
+    "reference": "332119152462",
+    "part": "86370-Q5010",
+    "compactPart": "86370Q5010",
+    "categoryId": "33654",
+    "usd": "288.24",
+    "shipping": "7day fast",
+    "title": "⭐Genuine 86370Q5010 Radiator Grille Trim Bezel For Kia Seltos 2020-2022",
+    "partWords": "radiator grille trim bezel",
+    "usStores": ["45900291012"],
+    "auStores": ["/Kia/Seltos"],
+    "auTargets": [
+      {"make": "Kia", "model": "Seltos", "minYear": 2020, "maxYear": 2022, "enginePattern": ""}
+    ]
+  },
+  {
+    "itemId": "54234f08-bcd6-4c4e-9dc5-0138dfa26c50",
+    "reference": "232120114726",
+    "part": "86560-2V000",
+    "compactPart": "865602V000",
+    "categoryId": "33645",
+    "usd": "444.71",
+    "shipping": "7day fast",
+    "title": "⭐Genuine 865602V000 Front Bumper Lower Grille For Hyundai Veloster 2012-2017",
+    "partWords": "front bumper lower grille",
+    "usStores": ["20622051012"],
+    "auStores": ["/Hyundai/Veloster"],
+    "auTargets": [
+      {"make": "Hyundai", "model": "Veloster", "minYear": 2012, "maxYear": 2017, "enginePattern": "(?i)Coupe 1\\.6 GDI \\(FS\\)"}
+    ]
+  },
+  {
+    "itemId": "0e62b923-d684-499a-88c9-8cd8ed86a88f",
+    "reference": "324717407988",
+    "part": "86564-F2AA0",
+    "compactPart": "86564F2AA0",
+    "categoryId": "33640",
+    "usd": "69.41",
+    "shipping": "7day normal",
+    "title": "⭐Genuine Front Bumper Lower Molding Right For Hyundai Elantra 2019-2020",
+    "partWords": "front bumper lower molding right",
+    "usStores": ["13146860012"],
+    "auStores": ["/Hyundai/Elantra"],
+    "auTargets": [
+      {"make": "Hyundai", "model": "Elantra", "minYear": 2019, "maxYear": 2020, "enginePattern": "(?i)\\bAD\\b"}
+    ]
+  },
+  {
+    "itemId": "cf703b48-9ff5-4447-9f01-20e333fb8a05",
+    "reference": "233644987672",
+    "part": "86588-2T500",
+    "compactPart": "865882T500",
+    "categoryId": "33640",
+    "usd": "40.61",
+    "shipping": "7day normal",
+    "title": "⭐Genuine 865882T500 Front Bumper Tow Hook Cap For Kia Optima 2014-2015",
+    "partWords": "front bumper tow hook cap",
+    "usStores": ["13146861012"],
+    "auStores": ["/Kia/Optima"],
+    "auTargets": [
+      {"make": "Kia", "model": "Optima", "minYear": 2014, "maxYear": 2015, "enginePattern": "(?i)\\bTF\\b"}
+    ]
+  },
+  {
+    "itemId": "4bc2090a-7ba4-40a5-9cb9-589932ab18cd",
+    "reference": "267597589816",
+    "part": "87772-D4000",
+    "compactPart": "87772D4000",
+    "categoryId": "33654",
+    "usd": "57.65",
+    "shipping": "7day normal",
+    "title": "⭐Genuine 87772D4000 Front Fender Side Molding Right For Kia Optima 2016-2018",
+    "partWords": "front fender side molding right",
+    "usStores": ["13146861012"],
+    "auStores": ["/Kia/Optima"],
+    "auTargets": [
+      {"make": "Kia", "model": "Optima", "minYear": 2016, "maxYear": 2018, "enginePattern": "(?i)\\bSedan\\b.*\\(JF\\)"}
+    ]
+  }
+]
