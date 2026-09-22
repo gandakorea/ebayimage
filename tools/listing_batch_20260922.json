@@ -1,0 +1,119 @@
+[
+  {
+    "itemId": "fb6e4da6-ab60-4e66-9223-53ede0156572",
+    "reference": "235545249866",
+    "part": "28140-C1510",
+    "compactPart": "28140C1510",
+    "categoryId": "173950",
+    "usd": "209.41",
+    "shipping": "7day fast",
+    "title": "⭐Genuine 28140C1510 Air Intake Hose Assembly For Kia Optima 2016-2020",
+    "partWords": "air intake hose assembly",
+    "usStores": ["13146861012"],
+    "auStores": ["/Kia/Optima"],
+    "auTargets": [{"make":"Kia","model":"Optima","minYear":2016,"maxYear":2020,"enginePattern":""}]
+  },
+  {
+    "itemId": "6894f612-a3e1-4bc8-a07b-e41661571e99",
+    "reference": "334703058594",
+    "part": "81320-4H020",
+    "compactPart": "813204H020",
+    "categoryId": "9887",
+    "usd": "163.53",
+    "shipping": "7day fast",
+    "title": "⭐Genuine 813204H020 Front Door Latch Right For Hyundai H1 2007-2017",
+    "partWords": "front door latch right",
+    "usStores": ["13657193012"],
+    "auStores": [],
+    "usTargets": [],
+    "auTargets": []
+  },
+  {
+    "itemId": "93d2d2d0-aed8-440f-a36a-b5524b6e47a7",
+    "reference": "235966977356",
+    "part": "86514-2T500",
+    "compactPart": "865142T500",
+    "categoryId": "33640",
+    "usd": "43.36",
+    "shipping": "7day normal",
+    "title": "⭐Genuine 865142T500 Front Bumper Side Bracket Right For Kia Optima 2014-2016",
+    "partWords": "front bumper side bracket right",
+    "usStores": ["13146861012"],
+    "auStores": ["/Kia/Optima"],
+    "auTargets": [{"make":"Kia","model":"Optima","minYear":2014,"maxYear":2016,"enginePattern":""}]
+  },
+  {
+    "itemId": "c8c8fc63-662e-4778-80b8-e1c0c0546990",
+    "reference": "334813254928",
+    "part": "87721-B8500GAL",
+    "compactPart": "87721B8500GAL",
+    "categoryId": "33654",
+    "usd": "293.56",
+    "shipping": "7day fast",
+    "title": "⭐Genuine 87721B8500GAL Front Door Lower Molding LH For Santa Fe 2017-2018",
+    "partWords": "front door lower molding left",
+    "usStores": ["45562724012", "45455270012"],
+    "auStores": ["/Hyundai/Santa Fe Sports", "/Hyundai/Santa Fe XL"],
+    "usTargets": [
+      {"make":"Hyundai","model":"Santa Fe Sport","minYear":2017,"maxYear":2018,"enginePattern":""},
+      {"make":"Hyundai","model":"Santa Fe XL","minYear":2017,"maxYear":2018,"enginePattern":""}
+    ],
+    "auTargets": [{"make":"Hyundai","model":"Santa Fe","minYear":2017,"maxYear":2018,"enginePattern":"(?i)(DM|DMA).*?(2359cc|3342cc|2.4L|3.3L).*Petrol"}]
+  },
+  {
+    "itemId": "26f2fecb-6169-4a46-8f6c-468fc519cd58",
+    "reference": "333205604679",
+    "part": "81260-3K001",
+    "compactPart": "812603K001",
+    "categoryId": "33656",
+    "usd": "46.88",
+    "shipping": "7day normal",
+    "title": "⭐Genuine 812603K001 Trunk Lid Outside Handle Switch For Hyundai Elantra 11-16",
+    "partWords": "trunk lid outside handle switch",
+    "usStores": ["13146860012"],
+    "auStores": ["/Hyundai/Elantra"],
+    "auTargets": [{"make":"Hyundai","model":"Elantra","minYear":2011,"maxYear":2016,"enginePattern":""}]
+  },
+  {
+    "itemId": "db2930f2-ec55-4825-8dc1-d256269c5b0f",
+    "reference": "335540227792",
+    "part": "86310-A7000",
+    "compactPart": "86310A7000",
+    "categoryId": "14769",
+    "usd": "45.36",
+    "shipping": "7day normal",
+    "title": "⭐Genuine 86310A7000 Rear Kia Logo Emblem For Kia Forte Sedan 2014-2016",
+    "partWords": "rear Kia logo emblem",
+    "usStores": ["13012894012"],
+    "auStores": ["/Kia/Forte"],
+    "usTargets": [{"make":"Kia","model":"Forte","minYear":2014,"maxYear":2016,"enginePattern":""}],
+    "auTargets": [{"make":"Kia","model":"Cerato","minYear":2014,"maxYear":2016,"enginePattern":""}]
+  },
+  {
+    "itemId": "f5b6ea89-b245-44ff-a349-4ccdbe8b360b",
+    "reference": "335513993187",
+    "part": "28113-L1000",
+    "compactPart": "28113L1000",
+    "categoryId": "33659",
+    "usd": "58.66",
+    "shipping": "7day normal",
+    "title": "⭐Genuine 28113L1000 Air Filter For Hyundai Santa Fe Sonata Kia Sorento 20-23",
+    "partWords": "air filter",
+    "usStores": ["13010908012", "12974034012"],
+    "auStores": ["/Hyundai/Santa Fe", "/Hyundai/Sonata"],
+    "usTargets": [
+      {"make":"Hyundai","model":"Santa Cruz","minYear":2022,"maxYear":2023,"enginePattern":""},
+      {"make":"Hyundai","model":"Santa Fe","minYear":2021,"maxYear":2023,"enginePattern":""},
+      {"make":"Hyundai","model":"Sonata","minYear":2020,"maxYear":2023,"enginePattern":""},
+      {"make":"Kia","model":"Carnival","minYear":2022,"maxYear":2023,"enginePattern":""},
+      {"make":"Kia","model":"K5","minYear":2021,"maxYear":2023,"enginePattern":""},
+      {"make":"Kia","model":"Sorento","minYear":2021,"maxYear":2023,"enginePattern":""}
+    ],
+    "auTargets": [
+      {"make":"Hyundai","model":"Santa Fe","minYear":2021,"maxYear":2023,"enginePattern":""},
+      {"make":"Hyundai","model":"Sonata","minYear":2020,"maxYear":2023,"enginePattern":""},
+      {"make":"Kia","model":"Carnival","minYear":2022,"maxYear":2023,"enginePattern":""},
+      {"make":"Kia","model":"Sorento","minYear":2021,"maxYear":2023,"enginePattern":""}
+    ]
+  }
+]
