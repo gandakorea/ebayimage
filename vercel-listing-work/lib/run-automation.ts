@@ -21,7 +21,7 @@ function updateItem(batch: SavedBatch, id: string, change: Partial<WorkItem>, au
   } satisfies SavedBatch;
 }
 
-export async function runAutomation(date: string, dryRun = false, itemIds?: string[]) {
+export async function runAutomation(date: string, dryRun = false, itemIds?: string[], usOnly = false) {
   const storedBatch = await readWorkBatch(date);
   if (!storedBatch) throw new Error('작업표를 찾지 못했습니다.');
   let batch: SavedBatch = { ...storedBatch, automationStatus: 'running' };
@@ -60,6 +60,13 @@ export async function runAutomation(date: string, dryRun = false, itemIds?: stri
       await notify(`[KOREA AUTOPARTS] ${item.partNumber ?? item.itemNumber} 미국 등록 확인 필요: ${message}`);
       return { ok: false as const, phase: 'EBAY_US', report, error: message };
     }
+  }
+
+  if (usOnly) return { ok: true as const, state: 'us_completed', report };
+
+  const activeBatch = batch.groups.flatMap((group) => group.items).filter((item) => item.itemNumber.trim());
+  if (activeBatch.some((item) => item.usResult?.status !== 'completed')) {
+    return { ok: true as const, state: 'awaiting_us_batch', report };
   }
 
   for (const item of items) {

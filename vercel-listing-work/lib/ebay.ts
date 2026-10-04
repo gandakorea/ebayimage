@@ -119,15 +119,15 @@ export async function publishUs(item: ListingPackage, price: string, shipping: S
   const imageUrls = await uploadImages(token, item);
   const sku = `${item.partNumber}-US-${item.date.replaceAll('-', '')}-${item.itemId.slice(0, 8)}`;
   const store = item.us.storeCategoryIds.slice(0, 2);
-  const request = `<?xml version="1.0" encoding="utf-8"?><${dryRun ? 'VerifyAddFixedPriceItem' : 'AddFixedPriceItem'}Request xmlns="urn:ebay:apis:eBLBaseComponents"><RequesterCredentials><eBayAuthToken>${xml(token)}</eBayAuthToken></RequesterCredentials><ErrorLanguage>en_US</ErrorLanguage><WarningLevel>High</WarningLevel><Item><SKU>${xml(sku)}</SKU><Title>${xml(item.title)}</Title><Description><![CDATA[${item.descriptionHtml}]]></Description><PrimaryCategory><CategoryID>${xml(item.us.categoryId)}</CategoryID></PrimaryCategory><StartPrice currencyID="USD">${xml(price)}</StartPrice><CategoryMappingAllowed>true</CategoryMappingAllowed><ConditionID>1000</ConditionID><Country>KR</Country><Currency>USD</Currency><DispatchTimeMax>3</DispatchTimeMax><ListingDuration>GTC</ListingDuration><ListingType>FixedPriceItem</ListingType><Quantity>5</Quantity><PostalCode>${xml(process.env.EBAY_SHIP_POSTAL_CODE ?? '16975')}</PostalCode><PictureDetails>${imageUrls.map((url) => `<PictureURL>${xml(url)}</PictureURL>`).join('')}</PictureDetails><SellerProfiles><SellerPaymentProfile><PaymentProfileID>${xml(required('EBAY_US_PAYMENT_POLICY_ID'))}</PaymentProfileID></SellerPaymentProfile><SellerReturnProfile><ReturnProfileID>${xml(required('EBAY_US_RETURN_POLICY_ID'))}</ReturnProfileID></SellerReturnProfile><SellerShippingProfile><ShippingProfileID>${xml(shipping === '7day fast' ? required('EBAY_US_FAST_POLICY_ID') : required('EBAY_US_NORMAL_POLICY_ID'))}</ShippingProfileID></SellerShippingProfile></SellerProfiles><ItemSpecifics>${xmlList(item.us.itemSpecifics)}</ItemSpecifics>${item.us.compatibility.length ? `<ItemCompatibilityList>${compatibilityXml(item.us.compatibility)}</ItemCompatibilityList>` : ''}${store.length ? `<Storefront>${store.map((id, index) => `<${index ? 'StoreCategory2ID' : 'StoreCategoryID'}>${xml(id)}</${index ? 'StoreCategory2ID' : 'StoreCategoryID'}>`).join('')}</Storefront>` : ''}</Item></${dryRun ? 'VerifyAddFixedPriceItem' : 'AddFixedPriceItem'}Request>`;
-  const response = await tradingCall(token, dryRun ? 'VerifyAddFixedPriceItem' : 'AddFixedPriceItem', '0', request);
+  const request = `<?xml version="1.0" encoding="utf-8"?><${dryRun ? 'VerifyAddFixedPriceItem' : 'AddFixedPriceItem'}Request xmlns="urn:ebay:apis:eBLBaseComponents"><RequesterCredentials><eBayAuthToken>${xml(token)}</eBayAuthToken></RequesterCredentials><ErrorLanguage>en_US</ErrorLanguage><WarningLevel>High</WarningLevel><Item><SKU>${xml(sku)}</SKU><Title>${xml(item.title)}</Title><Description><![CDATA[${item.descriptionHtml}]]></Description><PrimaryCategory><CategoryID>${xml(item.us.categoryId)}</CategoryID></PrimaryCategory><StartPrice currencyID="USD">${xml(price)}</StartPrice><CategoryMappingAllowed>true</CategoryMappingAllowed><ConditionID>1000</ConditionID><Country>KR</Country><Location>Yongin, South Korea</Location><Site>eBayMotors</Site><Currency>USD</Currency><DispatchTimeMax>3</DispatchTimeMax><ListingDuration>GTC</ListingDuration><ListingType>FixedPriceItem</ListingType><Quantity>5</Quantity><PostalCode>${xml(process.env.EBAY_SHIP_POSTAL_CODE ?? '16975')}</PostalCode><PictureDetails>${imageUrls.map((url) => `<PictureURL>${xml(url)}</PictureURL>`).join('')}</PictureDetails><SellerProfiles><SellerPaymentProfile><PaymentProfileID>${xml(required('EBAY_US_PAYMENT_POLICY_ID'))}</PaymentProfileID></SellerPaymentProfile><SellerReturnProfile><ReturnProfileID>${xml(required('EBAY_US_RETURN_POLICY_ID'))}</ReturnProfileID></SellerReturnProfile><SellerShippingProfile><ShippingProfileID>${xml(shipping === '7day fast' ? required('EBAY_US_FAST_POLICY_ID') : required('EBAY_US_NORMAL_POLICY_ID'))}</ShippingProfileID></SellerShippingProfile></SellerProfiles><ItemSpecifics>${xmlList(item.us.itemSpecifics)}</ItemSpecifics>${item.us.compatibility.length ? `<ItemCompatibilityList>${compatibilityXml(item.us.compatibility)}</ItemCompatibilityList>` : ''}${store.length ? `<Storefront>${store.map((id, index) => `<${index ? 'StoreCategory2ID' : 'StoreCategoryID'}>${xml(id)}</${index ? 'StoreCategory2ID' : 'StoreCategoryID'}>`).join('')}</Storefront>` : ''}</Item></${dryRun ? 'VerifyAddFixedPriceItem' : 'AddFixedPriceItem'}Request>`;
+  const response = await tradingCall(token, dryRun ? 'VerifyAddFixedPriceItem' : 'AddFixedPriceItem', '100', request);
   if (dryRun) return { listingId: 'DRY-RUN', listingUrl: '' };
   const listingId = response.match(/<ItemID>(\d+)<\/ItemID>/)?.[1];
   if (!listingId) throw new Error('미국 등록 후 ItemID를 확인하지 못했습니다.');
   return { listingId, listingUrl: `https://www.ebay.com/itm/${listingId}` };
 }
 
-async function ebayJson(token: string, marketplaceId: string, url: string, method: string, body?: unknown) {
+async function ebayJson(token: string, marketplaceId: string, url: string, method: string, body?: unknown, allowMissingOffer = false) {
   const response = await fetch(url, {
     method,
     headers: {
@@ -135,12 +135,15 @@ async function ebayJson(token: string, marketplaceId: string, url: string, metho
       accept: 'application/json',
       'content-type': 'application/json',
       'content-language': marketplaceId === 'EBAY_AU' ? 'en-AU' : 'en-US',
+      'accept-language': marketplaceId === 'EBAY_AU' ? 'en-AU' : 'en-US',
       'x-ebay-c-marketplace-id': marketplaceId,
     },
     body: body === undefined ? undefined : JSON.stringify(body), cache: 'no-store',
   });
   const text = await response.text();
   const value = text ? JSON.parse(text) as Record<string, unknown> : {};
+  if (allowMissingOffer && response.status === 404
+    && Array.isArray(value.errors) && value.errors.some((error) => error.errorId === 25713)) return { offers: [] };
   if (!response.ok) throw new Error(`eBay ${method} 실패 (${response.status}): ${text.slice(0, 600)}`);
   return value;
 }
@@ -214,7 +217,7 @@ export async function publishAu(item: ListingPackage, usd: string, shipping: Shi
     pricingSummary: { price: { value: converted.value, currency: 'AUD' } },
     storeCategoryNames: item.au.storeCategoryNames.slice(0, 2), listingDuration: 'GTC', includeCatalogProductDetails: true,
   };
-  const found = await ebayJson(token, 'EBAY_AU', `${apiBase}/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}`, 'GET') as {
+  const found = await ebayJson(token, 'EBAY_AU', `${apiBase}/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}`, 'GET', undefined, true) as {
     offers?: Array<{ offerId?: string; status?: string; listing?: { listingId?: string; listingStatus?: string } }>;
   };
   const existing = found.offers?.[0];

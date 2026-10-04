@@ -60,7 +60,7 @@ export async function PUT(request: NextRequest) {
     await saveListingPackage(pkg);
     const item = await markReady(pkg);
     const execution = item?.executionMode === 'immediate'
-      ? await runAutomation(pkg.date, false, [pkg.itemId])
+      ? await runAutomation(pkg.date, false)
       : null;
     return NextResponse.json({
       ok: true,
