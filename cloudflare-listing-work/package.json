@@ -6,7 +6,7 @@
     "build": "node scripts/build.mjs",
     "dev": "wrangler dev",
     "deploy": "node scripts/check-deploy.mjs && npm run build && wrangler deploy",
-    "test": "node --test scripts/worker.test.mjs scripts/executor.test.mjs",
+    "test": "node --test scripts/worker.test.mjs scripts/executor.test.mjs scripts/local-photo-validation.test.mjs",
     "db:local": "wrangler d1 migrations apply listing-work --local",
     "db:remote": "node scripts/check-deploy.mjs && wrangler d1 migrations apply listing-work --remote"
   },

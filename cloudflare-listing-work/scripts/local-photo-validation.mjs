@@ -34,7 +34,10 @@ export async function boundedBytes(response,limit) {
 export function epsURL(value) {
   if(typeof value!=='string') fail('EPS URL missing');
   const u=new URL(value);
-  if(u.protocol!=='https:'||u.hostname!=='i.ebayimg.com'||u.port||u.username||u.password||u.hash||u.search||!u.pathname.startsWith('/images/')) fail('Invalid EPS URL');
+  const modern=/^\/images\/(?:g|z)\/[^/]+\/[^/]+$/.test(u.pathname);
+  const legacy=/^\/00\/s\/[A-Za-z0-9=_-]+\/(?:g|z)\/[^/]+\/\$_(?:1|57)\.(?:png|jpe?g)$/i.test(u.pathname);
+  const queryOK=!u.search || (legacy && [...u.searchParams].length===1 && /^\d+$/.test(u.searchParams.get('set_id')??''));
+  if(u.protocol!=='https:'||u.hostname!=='i.ebayimg.com'||u.port||u.username||u.password||u.hash||!queryOK||(!modern&&!legacy)) fail('Invalid EPS URL');
   return u.href;
 }
 export async function verifyEPS(url,sourcePixels,fetcher=fetch) {

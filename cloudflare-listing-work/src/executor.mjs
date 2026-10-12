@@ -14,6 +14,7 @@ export async function executor(request,env){
  const raw=Buffer.from(await request.arrayBuffer());if(raw.length>4*1024*1024)throw Error('Request too large');
  const input=request.headers.get('content-type')==='application/octet-stream'?null:JSON.parse(raw.toString());
  if(input?.action==='identity'&&!input.run){const market=input.market;if(!['US','AU'].includes(market))throw Error('Invalid marketplace');const result=await identityOnly(env,market);return Response.json({ok:true,result});}
+ if(input?.action==='store'&&!input.run){const market=input.market;if(!['US','AU'].includes(market))throw Error('Invalid marketplace');const h=readOnly(env),t=await h.token(market);return Response.json({ok:true,result:{xml:await h.trading(t,'GetStore','<CategoryStructureOnly>true</CategoryStructureOnly>',market)}});}
  if(input?.action==='reference'){if(!/^\d{9,15}$/.test(input.itemId))throw Error('Invalid reference');return await referenceOnly(env,input.itemId,input.market??'US');}
  if(input?.action==='begin'){
   textMetadata(input);const {date,run,items}=input;if(!dateOK(date)||!/^[-a-f0-9]{36}$/.test(run)||!Array.isArray(items)||items.length<1||items.length>8||new Set(items.map(p=>p.localUUID)).size!==items.length)throw Error('Invalid exact batch');
@@ -79,6 +80,15 @@ async function handler(req,res) {
     if(input.action==='identity') result={seller:market==='US'?'gandakorea':'sihooshop',marketplace:'EBAY_'+market};
     else if(input.action==='policy') result=await json(t,'/sell/account/v1/fulfillment_policy/'+required(shippingKey(item,market)),'GET',undefined,market);
     else if(input.action==='store') result={xml:await trading(t,'GetStore','<CategoryStructureOnly>true</CategoryStructureOnly>',market)};
+    else if(input.action==='ensureAUStoreCategory') {
+      if(market!=='AU'||!/^\d+$/.test(input.parentCategoryId))throw Error('AU store parent required');
+      const makes=[...new Set(item.US.compatibilityFullRows.flatMap(row=>row.filter(v=>v.name==='Make').flatMap(v=>v.values)))];if(makes.length!==1)throw Error('Exact source make required');
+      const xml=await trading(t,'GetStore','<CategoryStructureOnly>true</CategoryStructureOnly>',market);
+      const parent=[...xml.matchAll(/<CustomCategory>([\s\S]*?)<\/CustomCategory>/g)].find(m=>m[1].startsWith(`<CategoryID>${input.parentCategoryId}</CategoryID><Name>${x(makes[0])}</Name>`));if(!parent)throw Error('Actual store parent/make mismatch');
+      const child=[...parent[1].matchAll(/<ChildCategory><CategoryID>(\d+)<\/CategoryID><Name>([^<]+)<\/Name>/g)].find(m=>m[2].toUpperCase()===x(item.storeModel).toUpperCase());
+      if(child)result={created:false,categoryId:child[1],xml};
+      else {await createRecord('store-category-attempt/AU/'+input.parentCategoryId+'/'+item.storeModel,{run,at:Date.now()});const updateXML=await trading(t,'SetStoreCategories',`<Action>Add</Action><DestinationParentCategoryID>${input.parentCategoryId}</DestinationParentCategoryID><StoreCategories><CustomCategory><Name>${x(item.storeModel)}</Name></CustomCategory></StoreCategories>`,market);result={created:true,updateXML,xml:await trading(t,'GetStore','<CategoryStructureOnly>true</CategoryStructureOnly>',market)};}
+    }
     else if(input.action==='upload') {
       const i=input.index;if(!Number.isInteger(i)||i<0||i>=item.images.length||hash(raw)!==item.images[i].sha256||raw.toString('hex',0,8)!=='89504e470d0a1a0a'||raw.readUInt32BE(16)!==1000||raw.readUInt32BE(20)!==1000) throw Error('Unapproved image');
       await createRecord('upload-attempt/'+run+'/'+market+'/'+item.localUUID+'/'+i,{attemptedAt:Date.now(),sha256:hash(raw)});const form=new FormData();form.append('image',new Blob([raw],{type:'image/png'}),item.partNumber+(i?'_'+i:'')+'.png');

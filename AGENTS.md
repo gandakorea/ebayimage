@@ -57,6 +57,8 @@
 
 ## Photo Work Instructions
 
+- 새 사진 작업과 편집 실패 재작업에서는 `docs/PHOTO_EDITING_PLAYBOOK.md`를 읽는다. Hermes는 실제 `image_generate` 도구의 원본 입력/반환 파일을 확인하며, Python 마무리·일반 색상 역합성을 이미지 편집 호출로 보고하지 않는다. 2026-10-13 기존 Codex OAuth 이미지 백엔드 선택과 원본 한 장의 실제 편집 성공을 확인했다. 전체 결과는 별도 개별 검수한다.
+
 - Read `작업규칙.md` before processing a new batch; it is the canonical visual specification.
 - Read `docs/WORKFLOW.md` for execution and verification, and `docs/MIGRATION.md` for moving computers.
 - Brief the user before editing. Preserve original product geometry, markings, terminals, labels and holograms.
