@@ -1,0 +1,22 @@
+{
+  "name": "korea-autoparts-listing-desk",
+  "main": "src/worker.mjs",
+  "compatibility_date": "2026-10-11",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "listing-work",
+      "database_id": "660c7809-6a07-42ba-a1a0-c4ef24ec526a",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ]
+}

@@ -1,0 +1,885 @@
+'use client';
+
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AlarmClock,
+  CalendarDays,
+  Check,
+  ClipboardCopy,
+  FileText,
+  Plus,
+  RotateCcw,
+  StickyNote,
+  Trash2,
+} from 'lucide-react';
+import type {
+  AgentGroup,
+  PreparationStatus,
+  SavedBatch,
+  ShippingPolicy,
+  WorkItem,
+} from './types';
+
+type ModelContext = {
+  registerTool: (
+    tool: {
+      name: string;
+      title: string;
+      description: string;
+      inputSchema: object;
+      annotations: { readOnlyHint: boolean; untrustedContentHint: boolean };
+      execute: (input: unknown) => unknown | Promise<unknown>;
+    },
+    options?: { signal?: AbortSignal },
+  ) => void | Promise<void>;
+};
+
+const versions = new Map<string, number>();
+const STORAGE_PREFIX = 'korea-autoparts-listing-work:';
+
+function makeItem(): WorkItem {
+  return {
+    id: crypto.randomUUID(),
+    itemNumber: '',
+    price: '',
+    shippingPolicy: '7day normal',
+    memo: '',
+    preparationStatus: 'waiting',
+  };
+}
+
+function makeGroups(): AgentGroup[] {
+  return [1, 2, 3].map((agent) => ({
+    agent,
+    items: [makeItem(), makeItem()],
+  }));
+}
+
+function todayInKorea() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+function koreaTime() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return { date: `${value.year}-${value.month}-${value.day}`, time: `${value.hour}:${value.minute}` };
+}
+
+function nextDate(date: string) {
+  const value = new Date(`${date}T12:00:00+09:00`);
+  value.setUTCDate(value.getUTCDate() + 1);
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(value);
+}
+
+function reservationDate(selectedDate: string) {
+  const now = koreaTime();
+  if (selectedDate > now.date) return selectedDate;
+  return selectedDate === now.date && now.time < '17:00' ? now.date : nextDate(now.date);
+}
+
+function readLocalBatch(date: string): SavedBatch | null {
+  try {
+    const raw = window.localStorage.getItem(`${STORAGE_PREFIX}${date}`);
+    return raw ? JSON.parse(raw) as SavedBatch : null;
+  } catch {
+    return null;
+  }
+}
+
+async function readServerBatch(date: string, trackVersion = true): Promise<SavedBatch | null> {
+  const response = await fetch(`/api/listing-work?date=${encodeURIComponent(date)}`, { cache: 'no-store' });
+  if (!response.ok) throw new Error('서버 작업표를 불러오지 못했습니다.');
+  const result = await response.json() as { found: boolean; batch?: SavedBatch; version: number };
+  if (trackVersion) versions.set(date, result.version);
+  return result.found && result.batch ? result.batch : null;
+}
+
+async function saveServerBatch(batch: SavedBatch) {
+  const response = await fetch('/api/listing-work', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ batch, expectedVersion: versions.get(batch.date) }),
+  });
+  if (!response.ok) throw new Error(response.status === 409 ? '다른 곳에서 작업표가 변경됐습니다. 다시 불러온 뒤 수정하세요.' : '서버에 저장하지 못했습니다.');
+  const result = await response.json();
+  versions.set(batch.date, result.version);
+  return result;
+}
+
+async function migrateLocalBatches() {
+  // Old browser drafts are preserved; never silently replace migrated server records.
+}
+
+function formatPrice(price: string) {
+  const clean = price.trim().replace(/^\$/, '');
+  if (!clean) return '$가격 미입력';
+  return `$${clean}`;
+}
+
+export default function ListingWorkPage() {
+  const [date, setDate] = useState('');
+  const [groups, setGroups] = useState<AgentGroup[]>([]);
+  const [batchMemo, setBatchMemo] = useState('');
+  const [scheduledTime, setScheduledTime] = useState('13:00');
+  const [automationEnabled, setAutomationEnabled] = useState(false);
+  const [publishMode, setPublishMode] = useState<'automatic' | 'approval'>('automatic');
+  const [ready, setReady] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [saveState, setSaveState] = useState<'saving' | 'saved' | 'error'>('saved');
+  const [cloudReady, setCloudReady] = useState<boolean | null>(null);
+  const [reservationNotice, setReservationNotice] = useState('');
+  const batchRef = useRef<SavedBatch>({
+    date: '', batchMemo: '', groups: [], scheduledTime: '13:00', automationEnabled: false, publishMode: 'automatic',
+  });
+  const skipAutosaveRef = useRef(true);
+
+  useEffect(() => {
+    void fetch('/api/automation/health', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((value: { ready?: boolean }) => setCloudReady(Boolean(value.ready)))
+      .catch(() => setCloudReady(false));
+  }, []);
+
+  useEffect(() => {
+    batchRef.current = { date, batchMemo, groups, scheduledTime, automationEnabled, publishMode };
+  }, [automationEnabled, batchMemo, date, groups, publishMode, scheduledTime]);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const currentDate = todayInKorea();
+      try {
+        await migrateLocalBatches();
+        const saved = await readServerBatch(currentDate);
+        if (!active) return;
+        setDate(currentDate);
+        setScheduledTime(saved?.scheduledTime ?? '13:00');
+        setGroups(saved?.groups ?? makeGroups());
+        setBatchMemo(saved?.batchMemo ?? '');
+        setAutomationEnabled(saved?.automationEnabled ?? false);
+        setPublishMode('automatic');
+      } catch {
+        if (!active) return;
+        setLoadError(true);
+        const local = readLocalBatch(currentDate);
+        setDate(currentDate);
+        setScheduledTime(local?.scheduledTime ?? '13:00');
+        setGroups(local?.groups ?? makeGroups());
+        setBatchMemo(local?.batchMemo ?? '');
+        setAutomationEnabled(local?.automationEnabled ?? false);
+        setPublishMode('automatic');
+        setSaveState('error');
+      } finally {
+        if (active) {
+          skipAutosaveRef.current = true;
+          setReady(true);
+        }
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!ready || !date || loadError || groups.length === 0) return;
+    if (skipAutosaveRef.current) {
+      skipAutosaveRef.current = false;
+      return;
+    }
+    const batch: SavedBatch = { date, batchMemo, groups, scheduledTime, automationEnabled, publishMode };
+    setSaveState('saving');
+    const timer = window.setTimeout(() => {
+      void saveServerBatch(batch)
+        .then(() => setSaveState('saved'))
+        .catch(() => {
+          window.localStorage.setItem(`${STORAGE_PREFIX}${date}`, JSON.stringify(batch));
+          setSaveState('error');
+        });
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [automationEnabled, batchMemo, date, groups, publishMode, ready, scheduledTime, loadError]);
+
+  useEffect(() => {
+    if (!ready || !date) return;
+    const refreshStatuses = async () => {
+      try {
+        const saved = await readServerBatch(date, false);
+        if (!saved) return;
+        const remoteItems = new Map(saved.groups.flatMap((group) => group.items).map((item) => [item.id, item]));
+        setGroups((current) => {
+          let changed = false;
+          const next = current.map((group) => ({
+            ...group,
+            items: group.items.map((item) => {
+            const remote = remoteItems.get(item.id);
+            if (!remote?.statusUpdatedAt
+              || (item.statusUpdatedAt && remote.statusUpdatedAt <= item.statusUpdatedAt)) return item;
+            changed = true;
+            return {
+              ...item,
+              preparationStatus: remote.preparationStatus,
+              partNumber: remote.partNumber,
+              photoCount: remote.photoCount,
+              executionMode: remote.executionMode,
+              statusUpdatedAt: remote.statusUpdatedAt,
+              usResult: remote.usResult,
+              auResult: remote.auResult,
+            };
+          }),
+          }));
+          if (!changed) return current;
+          skipAutosaveRef.current = true;
+          return next;
+        });
+      } catch {
+        // Keep the current form available while the next background refresh retries.
+      }
+    };
+    const timer = window.setInterval(() => void refreshStatuses(), 10000);
+    return () => window.clearInterval(timer);
+  }, [date, ready]);
+
+  useEffect(() => {
+    const modelContext = (document as Document & { modelContext?: ModelContext }).modelContext;
+    if (!ready || !modelContext?.registerTool) return;
+    const lifecycle = new AbortController();
+    const registrations = [modelContext.registerTool({
+      name: 'fill_listing_work_batch',
+      title: '리스팅 작업표 채우기',
+      description: '날짜와 에이전트별 eBay 아이템 번호, 가격, 배송 정책, 메모를 작업표에 입력하고 화면에 저장합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          date: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
+          batchMemo: { type: 'string' },
+          agents: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                agent: { type: 'integer', minimum: 1, maximum: 3 },
+                items: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      itemNumber: { type: 'string' },
+                      price: { type: 'string' },
+                      shippingPolicy: { enum: ['7day normal', '7day fast'] },
+                      memo: { type: 'string' },
+                    },
+                    required: ['itemNumber', 'price', 'shippingPolicy'],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ['agent', 'items'],
+              additionalProperties: false,
+            },
+          },
+        },
+        required: ['agents'],
+        additionalProperties: false,
+      },
+      annotations: { readOnlyHint: false, untrustedContentHint: false },
+      async execute(input) {
+        if (!input || typeof input !== 'object') throw new Error('작업표 데이터가 필요합니다.');
+        const value = input as {
+          date?: unknown;
+          batchMemo?: unknown;
+          agents?: unknown;
+        };
+        if (!Array.isArray(value.agents)) throw new Error('agents 배열이 필요합니다.');
+        const nextGroups = makeGroups();
+        for (const rawAgent of value.agents) {
+          if (!rawAgent || typeof rawAgent !== 'object') throw new Error('에이전트 형식이 올바르지 않습니다.');
+          const agentValue = rawAgent as { agent?: unknown; items?: unknown };
+          if (![1, 2, 3].includes(Number(agentValue.agent)) || !Array.isArray(agentValue.items)) {
+            throw new Error('에이전트 번호와 상품 목록을 확인해 주세요.');
+          }
+          const mapped = agentValue.items.map((rawItem) => {
+            if (!rawItem || typeof rawItem !== 'object') throw new Error('상품 형식이 올바르지 않습니다.');
+            const item = rawItem as Record<string, unknown>;
+            if (typeof item.itemNumber !== 'string' || typeof item.price !== 'string') {
+              throw new Error('아이템 번호와 가격을 문자로 입력해 주세요.');
+            }
+            if (item.shippingPolicy !== '7day normal' && item.shippingPolicy !== '7day fast') {
+              throw new Error('배송 정책은 7day normal 또는 7day fast만 가능합니다.');
+            }
+            return {
+              id: crypto.randomUUID(),
+              itemNumber: item.itemNumber,
+              price: item.price.replace(/^\$/, ''),
+              shippingPolicy: item.shippingPolicy,
+              memo: typeof item.memo === 'string' ? item.memo : '',
+            } satisfies WorkItem;
+          });
+          nextGroups[Number(agentValue.agent) - 1].items = mapped.length ? mapped : [makeItem()];
+        }
+        const nextDate = typeof value.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.date)
+          ? value.date
+          : batchRef.current.date;
+        const nextMemo = typeof value.batchMemo === 'string' ? value.batchMemo : '';
+        const nextBatch: SavedBatch = {
+          date: nextDate,
+          batchMemo: nextMemo,
+          groups: nextGroups,
+          scheduledTime: batchRef.current.scheduledTime,
+          automationEnabled: batchRef.current.automationEnabled,
+          publishMode: batchRef.current.publishMode,
+        };
+        await saveServerBatch(nextBatch);
+        skipAutosaveRef.current = true;
+        setDate(nextDate);
+        setBatchMemo(nextMemo);
+        setGroups(nextGroups);
+        setSaveState('saved');
+        setCopied(false);
+        return {
+          saved: true,
+          itemCount: nextGroups.reduce((total, group) => total + group.items.filter((item) => item.itemNumber.trim()).length, 0),
+        };
+      },
+    }, { signal: lifecycle.signal }), modelContext.registerTool({
+      name: 'read_listing_work_batch',
+      title: '리스팅 작업표 읽기',
+      description: '현재 화면 또는 지정한 날짜에 저장된 eBay 리스팅 작업표의 아이템 번호, 가격, 배송 정책, 메모와 준비 상태를 읽습니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          date: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
+        },
+        additionalProperties: false,
+      },
+      annotations: { readOnlyHint: true, untrustedContentHint: false },
+      async execute(input) {
+        const requestedDate = input && typeof input === 'object' && 'date' in input
+          ? (input as { date?: unknown }).date
+          : undefined;
+        if (requestedDate !== undefined && (typeof requestedDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(requestedDate))) {
+          throw new Error('날짜는 YYYY-MM-DD 형식이어야 합니다.');
+        }
+        const selectedDate = typeof requestedDate === 'string' ? requestedDate : batchRef.current.date;
+        const selected = await readServerBatch(selectedDate);
+        if (!selected) return { found: false, date: requestedDate };
+        return {
+          found: true,
+          date: selected.date,
+          batchMemo: selected.batchMemo,
+          scheduledTime: selected.scheduledTime,
+          automationEnabled: selected.automationEnabled,
+          publishMode: selected.publishMode,
+          agents: selected.groups.map((group) => ({
+            agent: group.agent,
+            items: group.items
+              .filter((item) => item.itemNumber.trim())
+              .map(({ id, itemNumber, price, shippingPolicy, memo, executionMode, preparationStatus, partNumber, photoCount }) => ({
+                id,
+                itemNumber: itemNumber.trim(),
+                price: formatPrice(price),
+                shippingPolicy,
+                memo: memo.trim(),
+                executionMode: executionMode ?? 'immediate',
+                preparationStatus: preparationStatus ?? 'waiting',
+                partNumber: partNumber ?? '',
+                photoCount: photoCount ?? 0,
+              })),
+          })),
+        };
+      },
+    }, { signal: lifecycle.signal }), modelContext.registerTool({
+      name: 'update_listing_work_item_status',
+      title: '상품 준비 상태 갱신',
+      description: '사진·등록 패키지 준비의 시작 또는 확인 필요 상태를 날짜별 작업표의 해당 상품에 기록합니다. 준비 완료는 패키지 업로드가 자동 기록합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          date: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
+          itemId: { type: 'string' },
+          status: { enum: ['working', 'needs_attention'] },
+          partNumber: { type: 'string' },
+          photoCount: { type: 'integer', minimum: 0 },
+        },
+        required: ['date', 'itemId', 'status'],
+        additionalProperties: false,
+      },
+      annotations: { readOnlyHint: false, untrustedContentHint: false },
+      async execute(input) {
+        if (!input || typeof input !== 'object') throw new Error('상품 상태 데이터가 필요합니다.');
+        const value = input as Record<string, unknown>;
+        if (typeof value.date !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(value.date)
+          || typeof value.itemId !== 'string'
+          || !['working', 'needs_attention'].includes(String(value.status))
+          || (value.partNumber !== undefined && typeof value.partNumber !== 'string')
+          || (value.photoCount !== undefined && (!Number.isInteger(value.photoCount) || Number(value.photoCount) < 0))) {
+          throw new Error('상품 상태 형식을 확인해 주세요.');
+        }
+        const selected = await readServerBatch(value.date);
+        if (!selected) throw new Error('해당 날짜의 작업표를 찾지 못했습니다.');
+        let found = false;
+        const statusUpdatedAt = new Date().toISOString();
+        const nextGroups = selected.groups.map((group) => ({
+          ...group,
+          items: group.items.map((item) => {
+            if (item.id !== value.itemId) return item;
+            found = true;
+            return {
+              ...item,
+              preparationStatus: value.status as PreparationStatus,
+              partNumber: typeof value.partNumber === 'string' ? value.partNumber : item.partNumber,
+              photoCount: typeof value.photoCount === 'number' ? value.photoCount : item.photoCount,
+              statusUpdatedAt,
+            };
+          }),
+        }));
+        if (!found) throw new Error('해당 상품을 작업표에서 찾지 못했습니다.');
+        await saveServerBatch({ ...selected, groups: nextGroups });
+        if (value.date === batchRef.current.date) setGroups(nextGroups);
+        return { saved: true, date: value.date, itemId: value.itemId, status: value.status, statusUpdatedAt };
+      },
+    }, { signal: lifecycle.signal })];
+    void Promise.all(registrations.map((registration) => Promise.resolve(registration))).catch(() => undefined);
+    return () => lifecycle.abort();
+  }, [ready]);
+
+  const itemCount = useMemo(
+    () => groups.reduce(
+      (total, group) => total + group.items.filter((item) => item.itemNumber.trim()).length,
+      0,
+    ),
+    [groups],
+  );
+
+  const changeDate = async (nextDate: string) => {
+    if (!nextDate) return;
+    setReady(false);
+    try {
+      const saved = await readServerBatch(nextDate);
+      setLoadError(false);
+      skipAutosaveRef.current = true;
+      setDate(nextDate);
+      setScheduledTime(saved?.scheduledTime ?? (nextDate === todayInKorea() ? '13:00' : '17:00'));
+      setGroups(saved?.groups ?? makeGroups());
+      setBatchMemo(saved?.batchMemo ?? '');
+      setAutomationEnabled(saved?.automationEnabled ?? false);
+      setPublishMode('automatic');
+      setSaveState('saved');
+      setCopied(false);
+    } catch {
+      setSaveState('error');
+    } finally {
+      setReady(true);
+    }
+  };
+
+  const updateItem = (agent: number, id: string, patch: Partial<WorkItem>) => {
+    setGroups((current) => current.map((group) => group.agent === agent
+      ? {
+          ...group,
+          items: group.items.map((item) => item.id === id ? {
+            ...item,
+            ...patch,
+            executionMode: undefined,
+            preparationStatus: 'waiting',
+            partNumber: undefined,
+            photoCount: undefined,
+            statusUpdatedAt: new Date().toISOString(),
+          } : item),
+        }
+      : group));
+    setCopied(false);
+  };
+
+  const markItemReady = async (agent: number, id: string) => {
+    if (loadError) return;
+    const statusUpdatedAt = new Date().toISOString();
+    const nextGroups = groups.map((group) => group.agent === agent
+      ? {
+          ...group,
+          items: group.items.map((item) => item.id === id ? {
+            ...item,
+            executionMode: 'immediate' as const,
+            preparationStatus: 'waiting' as PreparationStatus,
+            statusUpdatedAt,
+          } : item),
+        }
+      : group);
+    const nextBatch: SavedBatch = {
+      date, batchMemo, groups: nextGroups, scheduledTime, automationEnabled, publishMode,
+    };
+    skipAutosaveRef.current = true;
+    setGroups(nextGroups);
+    setSaveState('saving');
+    try {
+      await saveServerBatch(nextBatch);
+      setSaveState('saved');
+    } catch {
+      window.localStorage.setItem(`${STORAGE_PREFIX}${date}`, JSON.stringify(nextBatch));
+      setSaveState('error');
+    }
+  };
+
+  const reserveItemAtFive = async (agent: number, id: string) => {
+    const selected = groups.find((group) => group.agent === agent)?.items.find((item) => item.id === id);
+    if (!selected?.itemNumber.trim()) return;
+    const targetDate = reservationDate(date);
+    const statusUpdatedAt = new Date().toISOString();
+    const scheduledItem: WorkItem = {
+      ...selected,
+      executionMode: 'scheduled',
+      preparationStatus: selected.preparationStatus === 'ready' ? 'ready' : 'working',
+      statusUpdatedAt,
+    };
+
+    if (targetDate === date) {
+      const targetGroups = groups.map((group) => group.agent === agent ? {
+        ...group,
+        items: group.items.map((item) => item.id === id ? scheduledItem : item),
+      } : group);
+      const nextBatch: SavedBatch = {
+        date,
+        batchMemo,
+        groups: targetGroups,
+        scheduledTime: '17:00',
+        automationEnabled: true,
+        publishMode: 'automatic',
+        automationStatus: 'waiting',
+      };
+      setSaveState('saving');
+      try {
+        await saveServerBatch(nextBatch);
+        skipAutosaveRef.current = true;
+        setGroups(targetGroups);
+        setScheduledTime('17:00');
+        setAutomationEnabled(true);
+        setReservationNotice(`${targetDate} 오후 5시 · ${selected.itemNumber} 예약 요청 저장 · 실행기 연결 필요`);
+        setSaveState('saved');
+      } catch {
+        setSaveState('error');
+      }
+      return;
+    }
+
+    const savedTarget = await readServerBatch(targetDate);
+    const targetGroups = savedTarget?.groups ?? makeGroups();
+    const nextTargetGroups = targetGroups.map((group) => {
+      if (group.agent !== agent) return group;
+      const existingIndex = group.items.findIndex((item) => item.itemNumber.trim() === selected.itemNumber.trim());
+      if (existingIndex >= 0) return {
+        ...group,
+        items: group.items.map((item, index) => index === existingIndex ? { ...scheduledItem, id: item.id } : item),
+      };
+      const filled = group.items.filter((item) => item.itemNumber.trim());
+      return { ...group, items: [...filled, { ...scheduledItem, id: crypto.randomUUID() }] };
+    });
+    const remainingGroups = groups.map((group) => {
+      if (group.agent !== agent) return group;
+      const remaining = group.items.filter((item) => item.id !== id);
+      return { ...group, items: remaining.length ? remaining : [makeItem()] };
+    });
+
+    const nextBatch: SavedBatch = {
+      date: targetDate,
+      batchMemo: savedTarget?.batchMemo ?? '',
+      groups: nextTargetGroups,
+      scheduledTime: '17:00',
+      automationEnabled: true,
+      publishMode: 'automatic',
+      automationStatus: 'waiting',
+    };
+    setSaveState('saving');
+    try {
+      await saveServerBatch(nextBatch);
+      await saveServerBatch({
+        date,
+        batchMemo,
+        groups: remainingGroups,
+        scheduledTime,
+        automationEnabled,
+        publishMode,
+      });
+      skipAutosaveRef.current = true;
+      setDate(targetDate);
+      setBatchMemo(nextBatch.batchMemo);
+      setGroups(nextTargetGroups);
+      setScheduledTime('17:00');
+      setAutomationEnabled(true);
+      setPublishMode('automatic');
+      setReservationNotice(`${targetDate} 오후 5시 · ${selected.itemNumber} 예약 요청 저장 · 실행기 연결 필요`);
+      setSaveState('saved');
+    } catch {
+      setSaveState('error');
+    }
+  };
+
+  const addItem = (agent: number) => {
+    setGroups((current) => current.map((group) => group.agent === agent
+      ? { ...group, items: [...group.items, makeItem()] }
+      : group));
+  };
+
+  const removeItem = (agent: number, id: string) => {
+    setGroups((current) => current.map((group) => {
+      if (group.agent !== agent || group.items.length <= 1) return group;
+      return { ...group, items: group.items.filter((item) => item.id !== id) };
+    }));
+  };
+
+  const clearBatch = async () => {
+    if (loadError) return;
+    if (!date) return;
+    const response = await fetch(`/api/listing-work?date=${encodeURIComponent(date)}`, { method: 'DELETE', headers: { 'If-Match': String(versions.get(date)) } });
+    if (!response.ok) {
+      setSaveState('error');
+      return;
+    }
+    skipAutosaveRef.current = true;
+    versions.set(date, (versions.get(date) ?? 0) + 1);
+    window.localStorage.removeItem(`${STORAGE_PREFIX}${date}`);
+    setGroups(makeGroups());
+    setBatchMemo('');
+    setAutomationEnabled(false);
+    setPublishMode('automatic');
+    setSaveState('saved');
+    setCopied(false);
+  };
+
+  const copyRequest = async () => {
+    const lines: string[] = [`작업일: ${date}`];
+    groups.forEach((group) => {
+      const validItems = group.items.filter((item) => item.itemNumber.trim());
+      if (!validItems.length) return;
+      lines.push('', `${group.agent}번 에이전트`);
+      validItems.forEach((item) => {
+        const details = [
+          item.itemNumber.trim(),
+          formatPrice(item.price),
+          item.shippingPolicy,
+        ];
+        if (item.memo.trim()) details.push(`메모: ${item.memo.trim()}`);
+        lines.push(details.join('   '));
+      });
+    });
+    if (batchMemo.trim()) lines.push('', `전체 메모: ${batchMemo.trim()}`);
+    await navigator.clipboard.writeText(lines.join('\n'));
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  };
+
+  if (!ready) return <main className="listing-loading">작업표를 불러오는 중입니다.</main>;
+
+  if (loadError) return <main className="listing-shell"><h1>작업표를 불러오지 못했습니다</h1><p>저장된 자료를 보호하기 위해 입력과 자동 저장을 중단했습니다. 로컬 임시 자료는 보존됩니다.</p><button onClick={() => window.location.reload()}>다시 불러오기</button></main>;
+  return (
+    <main className="listing-shell">
+      <header className="listing-header">
+        <div className="listing-brand">
+          <span className="listing-logo">KA</span>
+          <div>
+            <strong>KOREA AUTOPARTS</strong>
+            <span>EBAY LISTING DESK</span>
+          </div>
+        </div>
+        <div className="listing-date-control">
+          <CalendarDays size={19} />
+          <label htmlFor="work-date">작업 날짜</label>
+          <input
+            id="work-date"
+            type="date"
+            value={date}
+            onChange={(event) => void changeDate(event.target.value)}
+          />
+        </div>
+      </header>
+
+      <section className="listing-intro">
+        <div>
+          <p>오늘의 등록 작업</p>
+          <h1>아이템 번호와 가격을 입력하세요</h1>
+        </div>
+        <div className="listing-summary" aria-label="입력 현황">
+          <span>{date}</span>
+          <strong>{itemCount}개 상품</strong>
+          <em><Check size={15} /> {saveState === 'saving' ? '서버 저장 중' : saveState === 'error' ? '저장 재시도 필요' : '서버 자동 저장'}</em>
+        </div>
+      </section>
+
+      <section className="automation-panel" aria-label="오후 5시 예약">
+        <div className="automation-copy">
+          <p>REGISTRATION</p>
+          <h2>작업을 저장한 뒤 에르메스에 시작을 지시하세요</h2>
+          <span>사진 작업과 상품 등록은 컴퓨터의 에르메스에서 실행합니다. 컴퓨터가 켜져 있어야 합니다.</span>
+          <strong className={cloudReady ? 'cloud-connected' : 'cloud-disconnected'}>
+            {cloudReady === null ? '연결 확인 중' : cloudReady ? 'Cloudflare 작업표 연결 완료 · 로컬 사진으로 작업' : '저장소 연결 확인 필요'}
+          </strong>
+        </div>
+        {reservationNotice && <strong className="reservation-notice">{reservationNotice}</strong>}
+      </section>
+
+      <section className="listing-layout">
+        <div className="agent-board">
+          {groups.map((group) => (
+            <article className={`agent-card agent-${group.agent}`} key={group.agent}>
+              <div className="agent-card-title">
+                <div>
+                  <span>{group.agent}</span>
+                  <div>
+                    <p>AGENT {String(group.agent).padStart(2, '0')}</p>
+                    <h2>{group.agent}번 에이전트</h2>
+                  </div>
+                </div>
+                <strong>{group.items.filter((item) => item.itemNumber.trim()).length}개</strong>
+              </div>
+
+              <div className="work-table-head" aria-hidden="true">
+                <span>아이템 번호</span>
+                <span>판매가격</span>
+                <span>배송 정책</span>
+                <span>상품 메모</span>
+                <span>작업 상태</span>
+                <span />
+              </div>
+
+              <div className="work-rows">
+                {group.items.map((item, index) => (
+                  <div className="work-row" key={item.id}>
+                    <span className="work-index">{index + 1}</span>
+                    <label>
+                      <span>아이템 번호</span>
+                      <input
+                        inputMode="numeric"
+                        placeholder="예: 333919045601"
+                        value={item.itemNumber}
+                        onChange={(event) => updateItem(group.agent, item.id, { itemNumber: event.target.value })}
+                      />
+                    </label>
+                    <label className="price-input">
+                      <span>판매가격</span>
+                      <b>$</b>
+                      <input
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        value={item.price}
+                        onChange={(event) => updateItem(group.agent, item.id, { price: event.target.value.replace(/^\$/, '') })}
+                      />
+                    </label>
+                    <label>
+                      <span>배송 정책</span>
+                      <select
+                        value={item.shippingPolicy}
+                        onChange={(event) => updateItem(group.agent, item.id, { shippingPolicy: event.target.value as ShippingPolicy })}
+                      >
+                        <option value="7day normal">7day normal</option>
+                        <option value="7day fast">7day fast</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>상품 메모</span>
+                      <input
+                        placeholder="확인할 내용"
+                        value={item.memo}
+                        onChange={(event) => updateItem(group.agent, item.id, { memo: event.target.value })}
+                      />
+                    </label>
+                    <div className={`item-progress ${item.preparationStatus ?? 'waiting'} ${item.executionMode ?? ''}`}>
+                      <button
+                        type="button"
+                        className="prepare-step"
+                        disabled={!item.itemNumber.trim() || item.preparationStatus === 'completed'
+                          || (item.preparationStatus === 'working' && item.executionMode === 'immediate')}
+                        onClick={() => void markItemReady(group.agent, item.id)}
+                      >
+                        <Check size={14} />
+                        {item.preparationStatus === 'working' && item.executionMode !== 'scheduled' ? '진행 중'
+                          : item.preparationStatus === 'ready' && item.executionMode !== 'scheduled' ? '등록 준비됨'
+                            : item.preparationStatus === 'completed' ? '등록 완료' : item.executionMode === 'immediate' ? '요청 저장됨' : '작업 요청'}
+                      </button>
+                      <button
+                        type="button"
+                        className="reservation-step"
+                        disabled={!item.itemNumber.trim() || item.preparationStatus === 'completed'}
+                        onClick={() => void reserveItemAtFive(group.agent, item.id)}
+                      >
+                        <AlarmClock size={14} />
+                        {item.executionMode === 'scheduled' ? '예약 요청됨' : '예약 요청'}
+                      </button>
+                      {item.partNumber && (
+                        <small>{item.partNumber}{typeof item.photoCount === 'number' ? ` · 사진 ${item.photoCount}장` : ''}</small>
+                      )}
+                      {item.preparationStatus === 'needs_attention' && <small>확인 필요</small>}
+                      {(item.usResult?.listingUrl || item.auResult?.listingUrl) && (
+                        <small className="marketplace-results">
+                          {item.usResult?.listingUrl && <a href={item.usResult.listingUrl} target="_blank" rel="noreferrer">미국</a>}
+                          {item.auResult?.listingUrl && <a href={item.auResult.listingUrl} target="_blank" rel="noreferrer">호주</a>}
+                        </small>
+                      )}
+                      {(item.usResult?.error || item.auResult?.error) && (
+                        <small title={item.usResult?.error ?? item.auResult?.error}>오류 내용을 확인하세요</small>
+                      )}
+                    </div>
+                    <button
+                      className="row-delete"
+                      type="button"
+                      aria-label={`${group.agent}번 에이전트 ${index + 1}번째 상품 삭제`}
+                      disabled={group.items.length <= 1}
+                      onClick={() => removeItem(group.agent, item.id)}
+                    >
+                      <Trash2 size={17} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <button className="add-work-row" type="button" onClick={() => addItem(group.agent)}>
+                <Plus size={17} /> 상품 추가
+              </button>
+            </article>
+          ))}
+        </div>
+
+        <aside className="batch-memo-card">
+          <div className="memo-title">
+            <span><StickyNote size={20} /></span>
+            <div>
+              <p>DAILY NOTE</p>
+              <h2>전체 메모</h2>
+            </div>
+          </div>
+          <textarea
+            value={batchMemo}
+            onChange={(event) => setBatchMemo(event.target.value)}
+            placeholder={'오늘 작업에서 공통으로 확인할 내용을 적으세요.\n\n예: 원산지는 비워두고 확인\n사진 라벨의 품번을 다시 점검'}
+          />
+          <div className="memo-guide">
+            <FileText size={17} />
+            <p>입력한 내용은 날짜별로 서버에 자동 저장되어 작업 에이전트가 바로 읽을 수 있습니다.</p>
+          </div>
+        </aside>
+      </section>
+
+      <footer className="listing-actions">
+        <button className="clear-listing" type="button" onClick={() => void clearBatch()}>
+          <RotateCcw size={18} /> 오늘 입력 비우기
+        </button>
+        <button className={`copy-listing ${copied ? 'copied' : ''}`} type="button" onClick={copyRequest} disabled={itemCount === 0}>
+          {copied ? <Check size={19} /> : <ClipboardCopy size={19} />}
+          {copied ? '복사했습니다' : '작업 요청문 복사'}
+        </button>
+      </footer>
+    </main>
+  );
+}

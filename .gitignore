@@ -33,3 +33,10 @@
 /migration-backup/
 /*.png
 !/39220-25500_2.png
+.vercel
+
+# Private migration configuration
+**/.private/
+/output/
+/dae/
+/.DS_Store
